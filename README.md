@@ -80,3 +80,9 @@ Battery drains and signal bars degrade as Yuki goes deeper underground; the cont
 status line tracks her `scene_anchor`; typing-indicator pacing covers LLM latency;
 localStorage persistence; per-beat snapshots power "redo my last text" and the
 ending-card "redo final choice".
+
+## License
+
+[AGPL-3.0-or-later](LICENSE). Free software — use, study, change, and share it. If you run
+a modified version for others over a network, you must offer them its source (that's the
+AGPL part, vs plain GPL). © 2026 Martin.
