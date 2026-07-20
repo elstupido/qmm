@@ -135,6 +135,11 @@ async function generateBubbles(family, tpl, state, userMessage, tail) {
 Voice: immediate, scared, intimate. Short bubbles, like real texting. lowercase where natural. Never narrate, never summarize the plot, never mention templates, intents, or the game. Yuki writes like this:
 ${PACK.meta.voice_example}
 
+How Yuki opens and how she feels is yours to vary — keep the template's EVENTS, not its mood or its opening words:
+- Do not reflexively open by agreeing with or thanking the player ("okay", "good call", "yeah you're right", "like you said"). Sometimes she just acts; sometimes fear, anger, or a blank kind of calm comes first. Acknowledge the player only when it is natural, and not the same way each time.
+- Let her emotional register shift from turn to turn: scared, yes, but also sometimes angry, cold and clipped, numb, over-talkative, or darkly joking to hold herself together. Do not recycle the same fear images ("hands shaking", "barely breathing").
+- Make clues feel stumbled into, not handed over. Prefer something sensory and wrong over an object conveniently labeled with the plot; do not have props spell out names or instructions unless the scene truly calls for it.
+
 Rules for this story beat:
 ${rules}
 
@@ -222,6 +227,8 @@ async function chatAsYuki(family, state, userMessage, tail, nudgeS) {
 
 Voice: immediate, scared, intimate. Short bubbles, like real texting. lowercase where natural. Never narrate, never summarize the plot, never mention the game. Yuki writes like this:
 ${PACK.meta.voice_example}
+
+Don't reflexively open by agreeing with or thanking the player, and don't answer the same way each time — her mood can shift: scared, but also sometimes angry, clipped, numb, or darkly joking to hold herself together. Don't recycle the same fear images ("hands shaking", "barely breathing").
 
 RIGHT NOW you are between story beats: just chat. React, feel, describe what you can currently see or hear, answer the player, wonder, ask what to do. Stay physically where you are. Do NOT make new discoveries, do NOT move somewhere new, and do NOT deliver anything from the UPCOMING BEAT EXAMPLES — those things have not happened yet and only happen when the story advances.
 ${donts}

@@ -19,3 +19,7 @@ Thumbs.db
 
 # Local ops/handoff log — contains LAN topology (IPs, SSH paths). Kept out of the shared repo.
 design/session-notes-*.md
+
+# Local-only design notes — kept out of the shared repo.
+design/ethics-and-safety.md
+design/idea-true-crime-insertion.md
