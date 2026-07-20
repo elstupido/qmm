@@ -1,0 +1,21 @@
+# Runtime flight logs — contain player messages, session ids, IP addresses.
+# NEVER commit these.
+logs/
+*.log
+*.jsonl
+
+# 5090-specific firewall/ops cruft from the deploy gremlin hunt
+fix-firewall.ps1
+
+# Personal ops doc — LAN topology, SSH key paths, gateway internals. Kept out of the shared repo.
+DEPLOY.md
+
+# Node
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local ops/handoff log — contains LAN topology (IPs, SSH paths). Kept out of the shared repo.
+design/session-notes-*.md
