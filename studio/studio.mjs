@@ -25,6 +25,7 @@ import { scanLore, resolveMacros, applyRails } from '../server/lore.mjs';
 import { validateModule } from '../server/validate.mjs';
 import { DraftStore } from './lib/draft-store.mjs';
 import * as scratchSessions from './lib/scratch-sessions.mjs';
+import { Publisher } from './lib/publish.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(here, '..');
@@ -42,6 +43,13 @@ const PLAYER_URL = (process.env.PLAYER_URL || 'http://127.0.0.1:8791').replace(/
 const STUDIO_TOKEN = process.env.STUDIO_TOKEN || '';
 
 const store = new DraftStore({ modulesDir: MODULES_DIR, draftsDir: DRAFTS_DIR, scaffoldDir: SCAFFOLD_DIR });
+const publisher = new Publisher({
+  store,
+  versionsDir: join(ROOT, 'modules-versions'),
+  playerUrl: PLAYER_URL,
+  reloadToken: process.env.RELOAD_TOKEN || '',
+  log: (e) => slog(e),
+});
 
 // Studio activity log — separate file from the player's flight log.
 const LOG_DIR = join(ROOT, 'logs');
@@ -339,6 +347,37 @@ const server = createServer(async (req, res) => {
       const sess = scratchSessions.loadSession(playId, moduleId);
       if (!sess) return sendJson(res, 404, { error: 'not_found' });
       return sendJson(res, 200, sess);
+    }
+
+    // ------------------------------------------------------------ publish ----
+    if ((m = /^\/api\/studio\/publish\/([^/]+)$/.exec(path)) && req.method === 'POST') {
+      if (!requireToken(req, res)) return;
+      const id = decodeURIComponent(m[1]);
+      const body = await readBody(req);
+      try {
+        const r = await publisher.publish(id, {
+          bump: ['patch', 'minor', 'major'].includes(body.bump) ? body.bump : 'patch',
+          note: String(body.note || '').slice(0, 400),
+          acceptWarnings: !!body.accept_warnings,
+        });
+        return sendJson(res, r.status === 'blocked' ? 422 : 200, r);
+      } catch (e) { return storeError(res, e); }
+    }
+    if ((m = /^\/api\/studio\/rollback\/([^/]+)$/.exec(path)) && req.method === 'POST') {
+      if (!requireToken(req, res)) return;
+      const id = decodeURIComponent(m[1]);
+      const body = await readBody(req);
+      try { return sendJson(res, 200, await publisher.rollback(id, String(body.version || ''))); }
+      catch (e) { return storeError(res, e); }
+    }
+    if ((m = /^\/api\/studio\/versions\/([^/]+)$/.exec(path)) && req.method === 'GET') {
+      const id = decodeURIComponent(m[1]);
+      try { return sendJson(res, 200, { versions: publisher.listVersions(id) }); }
+      catch (e) { return storeError(res, e); }
+    }
+    if (req.method === 'POST' && path === '/api/studio/reload-player') {
+      if (!requireToken(req, res)) return;
+      return sendJson(res, 200, await publisher.reloadPlayer());
     }
 
     // ------------------------------------------------------------ static ----

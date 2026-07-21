@@ -113,7 +113,7 @@ function renderLintInto(host) {
 }
 
 /* ----------------------------------------------------------------- router */
-const routes = { dash: renderDash, story: renderStory, beats: renderBeats, lore: renderLore, test: renderTest, play: renderPlay, publish: renderStub };
+const routes = { dash: renderDash, story: renderStory, beats: renderBeats, lore: renderLore, test: renderTest, play: renderPlay, publish: renderPublish };
 
 function nav() {
   const h = location.hash || '#/';
@@ -608,6 +608,122 @@ function renderPlay() {
     }
     if (e.data.ending) log.prepend(el('div', 'item warn', `ENDING: ${e.data.ending.route} (${e.data.ending.type})`));
   };
+}
+
+/* ---------------------------------------------------------------- publish */
+async function renderPublish() {
+  main.innerHTML = '';
+  main.append(el('h1', '', 'Publish'), el('p', 'sub', 'draft → validate → version bump → snapshot → live install → player hot-reload'));
+
+  // diff
+  main.append(el('h2', '', 'Draft vs live'));
+  const diffHost = el('div', 'lint');
+  main.append(diffHost);
+  try {
+    const diff = await api('GET', `api/studio/diff/${S.id}`);
+    let any = false;
+    for (const [doc, paths] of Object.entries(diff)) {
+      for (const p of paths) { any = true; diffHost.append(el('div', 'item', `${doc}: ${p}`)); }
+    }
+    if (!any) diffHost.append(el('div', 'item', 'draft is identical to live — nothing to publish'));
+  } catch (e) { diffHost.append(el('div', 'item err', `diff failed: ${e.message}`)); }
+
+  // validation
+  main.append(el('h2', '', 'Validation'));
+  const lintHost = Object.assign(el('div', 'lint'), { id: 'lint-panel' });
+  main.append(lintHost);
+  try {
+    S.lint = await api('POST', `api/studio/validate/${S.id}`, { target: 'draft' });
+    renderLintInto(lintHost);
+    refreshStrip();
+  } catch (e) { lintHost.append(el('div', 'item err', `validate failed: ${e.message}`)); }
+
+  // publish controls
+  main.append(el('h2', '', 'Publish'));
+  const g = el('div', 'grid3');
+  const bumpSel = selectInput(['patch', 'minor', 'major'], 'patch', () => {});
+  const noteIn = Object.assign(input(''), { placeholder: 'publish note (optional)' });
+  g.append(labeled('version bump', bumpSel), labeled('note', noteIn));
+  main.append(g);
+  const pubBtn = el('button', 'primary', 'Publish to live');
+  pubBtn.style.marginTop = '10px';
+  pubBtn.disabled = !!S.lint?.errors?.length || !!S.dirty.size;
+  if (S.dirty.size) main.append(el('p', 'hint', 'save your changes first — publish reads the draft from disk'));
+  const result = el('div', 'lint');
+  result.style.marginTop = '10px';
+  main.append(pubBtn, result);
+
+  pubBtn.onclick = async (ev, accepted) => {
+    result.innerHTML = '';
+    try {
+      const r = await api('POST', `api/studio/publish/${S.id}`, { bump: bumpSel.value, note: noteIn.value, accept_warnings: !!accepted });
+      if (r.status === 'needs_confirm') {
+        result.append(el('div', 'item warn', `${r.warnings.length} warning(s) — review above, then confirm`));
+        pubBtn.textContent = 'Publish despite warnings';
+        pubBtn.onclick = async () => {
+          try {
+            const r2 = await api('POST', `api/studio/publish/${S.id}`, { bump: bumpSel.value, note: noteIn.value, accept_warnings: true });
+            showPublishResult(result, r2);
+            if (r2.status === 'published') { toast(`published ${r2.version}`); S.draft = await api('GET', `api/studio/draft/${S.id}`); renderPublish(); }
+          } catch (e2) { result.append(el('div', 'item err', `publish failed: ${e2.message}`)); }
+        };
+        return;
+      }
+      showPublishResult(result, r);
+      if (r.status === 'published') { toast(`published ${r.version}`); S.draft = await api('GET', `api/studio/draft/${S.id}`); renderPublish(); }
+    } catch (e) {
+      if (e.status === 422 && e.data?.errors) {
+        result.append(el('div', 'item err', `publish blocked: ${e.data.errors.length} error(s) — see validation above`));
+      } else result.append(el('div', 'item err', `publish failed: ${e.message}`));
+    }
+  };
+
+  // versions / rollback
+  main.append(el('h2', '', 'Published versions'));
+  const vh = el('div', 'lint');
+  main.append(vh);
+  try {
+    const { versions } = await api('GET', `api/studio/versions/${S.id}`);
+    if (!versions.length) vh.append(el('div', 'item', 'no snapshots yet'));
+    for (const v of versions) {
+      const it = el('div', 'item');
+      it.style.display = 'flex';
+      it.style.alignItems = 'center';
+      it.style.gap = '10px';
+      const txt = el('span', '', `${v.version}  ·  ${v.published_at ? v.published_at.slice(0, 16).replace('T', ' ') : '(no meta)'}  ${v.note ? '· ' + v.note : ''}`);
+      txt.style.flex = '1';
+      const rb = el('button', 'danger', 'Roll back to this');
+      rb.onclick = async () => {
+        if (!confirm(`Roll LIVE back to ${v.version}?`)) return;
+        try {
+          const r = await api('POST', `api/studio/rollback/${S.id}`, { version: v.version });
+          toast(`rolled back to ${v.version}${r.reload?.ok ? ' (player reloaded)' : ' — PLAYER RELOAD FAILED'}`, !r.reload?.ok);
+          renderPublish();
+        } catch (e) { toast(e.message, true); }
+      };
+      it.append(txt, rb);
+      vh.append(it);
+    }
+  } catch (e) { vh.append(el('div', 'item err', `versions: ${e.message}`)); }
+}
+
+function showPublishResult(host, r) {
+  host.innerHTML = '';
+  if (r.status === 'published') {
+    host.append(el('div', 'item', `published ${r.from_version} → ${r.version} (snapshot ${r.snapshot})`));
+    if (r.reload?.ok) host.append(el('div', 'item', `player reloaded: ${(r.reload.modules || []).join(', ')}`));
+    else {
+      const it = el('div', 'item err', `PLAYER RELOAD FAILED (${r.reload?.error || r.reload?.status || '?'}) — files are live on disk; retry:`);
+      const retry = el('button', '', 'Retry reload');
+      retry.style.marginLeft = '8px';
+      retry.onclick = async () => {
+        const rr = await api('POST', 'api/studio/reload-player');
+        toast(rr.ok ? 'player reloaded' : `still failing: ${rr.error || rr.status}`, !rr.ok);
+      };
+      it.append(retry);
+      host.append(it);
+    }
+  }
 }
 
 /* ------------------------------------------------------- stubs (later phases) */
