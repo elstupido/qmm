@@ -1,0 +1,49 @@
+{
+  "meta": {
+    "title": "Dark Demo (DEV ONLY)",
+    "cold_open": ["TODO: Martin authors the opening bubbles"],
+    "intents": {
+      "TODO_INTENT_A": "TODO: a per-story intent — what the player is telling the character to do",
+      "TODO_INTENT_B": "TODO: another intent",
+      "OTHER": "Ambiguous, emotional, off-path, or hard to classify."
+    },
+    "voice_example": "TODO: a few example bubbles showing the character's texting voice"
+  },
+  "families": [
+    {
+      "n": 1,
+      "from": "S00_Open",
+      "to": "S01_TODO",
+      "bubbles": [3, 8],
+      "shared_rules": ["TODO: per-beat generation rules (what not to reveal yet, tone, etc.)"],
+      "available_context": ["TODO: what the character knows at this beat"],
+      "input_fields": ["current_state", "classified_intent", "user_message"],
+      "templates": {
+        "OTHER": {
+          "id": "R01_OTHER",
+          "intent": "OTHER",
+          "intent_desc": "TODO",
+          "template": "TODO: the base bubbles for this transition",
+          "fill_guidance": ["TODO"],
+          "updates": [
+            { "field": "current_state", "kind": "set", "value": "S01_TODO", "raw": "`S01_TODO`" }
+          ]
+        }
+      }
+    }
+  ],
+  "breaches": [
+    {
+      "id": "example_hot_read",
+      "type": "hot_reading",
+      "_anatomy": "Illustrative — the 7-stage breach anatomy. See qmm/design/mentalism-and-storytelling.md.",
+      "source": "TODO: high-confidence first-party fact (local time, city, weather)",
+      "gate": "TODO: confidence threshold; distress-safe",
+      "transform": "TODO: imply, don't state ('you should be asleep', not 'it is 2:47 in Denver')",
+      "attribution": "the Story / character knows — never 'we have your data'",
+      "separation": "TODO: when it fires (e.g. captured at onboarding, deployed later)",
+      "out": "TODO: graceful miss (don't fire low-confidence)",
+      "fire_condition": "TODO: the beat/state that triggers it"
+    }
+  ]
+}

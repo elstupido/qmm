@@ -1,0 +1,22 @@
+{
+  "id": "dark-demo",
+  "story_id": "dark-demo",
+  "episode": 1,
+  "version": "0.1.0",
+  "title": "Dark Demo (DEV ONLY — never ships)",
+  "engine_min_version": "0.1.0",
+  "entitlement": "dev",
+  "publish": false,
+  "safety_profile": {
+    "stop": true,
+    "min_age": 18,
+    "distress_detection": true
+  },
+  "breach_config": {
+    "hot_reading": true,
+    "nocebo": true,
+    "dual_reality": true
+  },
+  "pack": "pack.json",
+  "notes": "Developer test bed for validating the breach mechanics (hot reading / nocebo / dual reality) reliably, safely, and fun. publish=false: never served to players. Story content authored by Martin."
+}

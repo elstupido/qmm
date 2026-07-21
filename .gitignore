@@ -7,6 +7,12 @@ logs/
 # Server-side player sessions — story state + transcripts (per user/module). Player data; never commit.
 sessions/
 
+# Authoring studio working state — drafts are author scratch, versions are the on-box publish
+# audit trail, studio-sessions are playtest scratch. None belong in the shared repo.
+modules-draft/
+modules-versions/
+studio-sessions/
+
 # 5090-specific firewall/ops cruft from the deploy gremlin hunt
 fix-firewall.ps1
 
