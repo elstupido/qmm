@@ -979,6 +979,21 @@ function renderAuthor() {
     return det;
   };
 
+  async function tryRecover() {
+    try {
+      const last = await api('GET', `api/studio/author-chat/${S.id}/last`);
+      if (!last?.messages?.length || last.messages.length <= chat.messages.length) return false;
+      const lastLocalUser = [...chat.messages].reverse().find(m => m.role === 'user')?.content;
+      if (chat.messages.length && !last.messages.some(m => m.role === 'user' && m.content === lastLocalUser)) return false;
+      chat.messages = last.messages;
+      chat.lastLog = last.tool_log;
+      persistChat(chat);
+      S.draft = await api('GET', `api/studio/draft/${S.id}`);
+      refreshStrip();
+      return true;
+    } catch { return false; }
+  }
+
   const renderThread = () => {
     thread.innerHTML = '';
     if (!chat.messages.length) {
@@ -1001,6 +1016,12 @@ function renderAuthor() {
     thread.scrollTop = thread.scrollHeight;
   };
   renderThread();
+
+  // a dangling user message with no reply = we probably lost a finished turn (phone lock,
+  // dropped stream) — ask the server for it
+  if (chat.messages.length && chat.messages[chat.messages.length - 1].role === 'user' && !chat.busy) {
+    tryRecover().then(got => { if (got) { toast('recovered a finished turn from the server'); renderAuthor(); } });
+  }
 
   // live area appended below history during a streamed turn
   const live = el('div', 'agent-thread live');
@@ -1129,6 +1150,7 @@ function renderAuthor() {
           let data = {};
           try { data = JSON.parse(dataM[1]); } catch { continue; }
           if (ev === 'round') status.textContent = `working — round ${data.n}…`;
+          else if (ev === 'working') status.textContent = `round ${data.round} — engine writing… ${data.elapsed_s}s (big builds take a while; work lands even if you leave)`;
           else if (ev === 'thinking') addFold(live, 'thinking', data.text, 'think');
           else if (ev === 'interim' && data.text) live.append(el('div', 'msg agent dim', data.text));
           else if (ev === 'tool') {
@@ -1151,8 +1173,11 @@ function renderAuthor() {
       refreshStrip();
       speak(finalReply);
     } catch (e) {
-      if (e.name !== 'AbortError') toast(`author chat failed: ${e.message}`, true);
-      else toast('stopped — tool work already done stays done');
+      if (e.name !== 'AbortError') {
+        const got = await tryRecover();
+        if (got) toast('stream dropped but the turn finished — recovered from the server');
+        else toast(`author chat failed: ${e.message}`, true);
+      } else toast('stopped — tool work already done stays done');
     }
     aborter = null;
     chat.busy = false;

@@ -163,6 +163,22 @@ const tc = (name, args, cid) => ({ id: cid || `c${Math.floor(Math.random() * 1e6
   ok('loop: system prompt injected first, client history untouched', seen.sys.role === 'system' && seen.sys.content.includes('FORMAT LAW') && seen.n === 2);
 }
 
+// --------------------------------------------------------- heartbeat --------
+{
+  process.env.AUTHOR_HEARTBEAT_MS = '40';
+  const events = [];
+  await runAuthorChat({
+    store, id: ID, messages: [{ role: 'user', content: 'slow one' }],
+    emit: (ev, data) => events.push([ev, data]),
+    llm: async () => { await new Promise(r => setTimeout(r, 150)); return { content: 'done after a long think' }; },
+  });
+  const beats = events.filter(([ev]) => ev === 'working');
+  ok('heartbeat: working events emitted during a slow engine call', beats.length >= 2);
+  ok('heartbeat: carries round + elapsed', beats[0][1].round === 1 && typeof beats[0][1].elapsed_s === 'number');
+  ok('heartbeat: stops after the call (no beats after reply)', events.findIndex(([e]) => e === 'reply') > events.map(([e]) => e).lastIndexOf('working'));
+  delete process.env.AUTHOR_HEARTBEAT_MS;
+}
+
 // --------------------------------------------------------- splitThinking ----
 {
   ok('split: closed think', JSON.stringify(splitThinking({ content: '<think>a</think>b' })) === JSON.stringify({ thinking: 'a', text: 'b' }));

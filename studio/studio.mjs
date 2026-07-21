@@ -12,7 +12,7 @@
 // which the player server never reads.
 
 import { createServer } from 'node:http';
-import { readFileSync, existsSync, statSync, appendFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, renameSync, existsSync, statSync, appendFileSync, mkdirSync } from 'node:fs';
 import { join, normalize, extname, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -51,6 +51,21 @@ const STUDIO_TOKEN = process.env.STUDIO_TOKEN || '';
 const GATE_READS = process.env.STUDIO_GATE_READS === '1';
 
 const store = new DraftStore({ modulesDir: MODULES_DIR, draftsDir: DRAFTS_DIR, scaffoldDir: SCAFFOLD_DIR });
+
+// Marathon-turn safety: a gauge for deploys (never restart mid-turn) and a per-module store of
+// the last COMPLETED turn so a client that lost its SSE (phone lock, network) can recover the
+// finished work instead of going amnesiac about it.
+let ACTIVE_TURNS = 0;
+const LAST_TURN_DIR = join(ROOT, 'studio-sessions');
+mkdirSync(LAST_TURN_DIR, { recursive: true });
+const lastTurnFile = (id) => join(LAST_TURN_DIR, `last-turn-${id.replace(/[^a-z0-9-]/gi, '_')}.json`);
+function saveLastTurn(id, out) {
+  try {
+    const tmp = `${lastTurnFile(id)}.${process.pid}.tmp`;
+    writeFileSync(tmp, JSON.stringify({ ts: new Date().toISOString(), id, rounds: out.rounds, messages: out.messages, tool_log: out.tool_log, reply: out.reply }));
+    renameSync(tmp, lastTurnFile(id));
+  } catch (e) { console.error(`[last-turn] ${e.message}`); }
+}
 const publisher = new Publisher({
   store,
   versionsDir: join(ROOT, 'modules-versions'),
@@ -158,7 +173,7 @@ function benchContext(body) {
 }
 
 async function health() {
-  const out = { ok: true, service: 'qmm-author-studio', num_ctx: NUM_CTX, model: MODEL, player: { url: PLAYER_URL, reachable: false }, ollama: { url: OLLAMA, reachable: false }, token_configured: !!STUDIO_TOKEN };
+  const out = { ok: true, service: 'qmm-author-studio', num_ctx: NUM_CTX, model: MODEL, active_turns: ACTIVE_TURNS, player: { url: PLAYER_URL, reachable: false }, ollama: { url: OLLAMA, reachable: false }, token_configured: !!STUDIO_TOKEN };
   try {
     const r = await (await fetch(`${PLAYER_URL}/api/health`, { signal: AbortSignal.timeout(4000) })).json();
     out.player.reachable = true;
@@ -405,27 +420,42 @@ const server = createServer(async (req, res) => {
       // interim/reply/done) so folds and tool chips appear live in the chat.
       if (url.searchParams.get('stream') === '1') {
         res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store', connection: 'keep-alive' });
-        const send = (event, data) => res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+        const send = (event, data) => { try { res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`); } catch { /* client gone — keep working */ } };
+        ACTIVE_TURNS++;
         try {
           const out = await runAuthorChat({ store, id, messages, emit: send, log: toolLedger });
           const draft = store.loadDraft(id);
           slog({ kind: 'author_chat', id, rounds: out.rounds, stream: true, tools: out.tool_log.map(t => `${t.tool}${t.ok ? '' : '!'}`) });
           logTurn(out);
+          saveLastTurn(id, out);
           send('done', { messages: out.messages, tool_log: out.tool_log, rounds: out.rounds, revs: draft?.revs || null });
         } catch (e) {
           logTurn(null, e);
           send('error', { error: e.code || 'error', detail: String(e.message || e) });
-        }
+        } finally { ACTIVE_TURNS--; }
         return res.end();
       }
 
+      ACTIVE_TURNS++;
       try {
         const out = await runAuthorChat({ store, id, messages, log: toolLedger });
         const draft = store.loadDraft(id);
         slog({ kind: 'author_chat', id, rounds: out.rounds, tools: out.tool_log.map(t => `${t.tool}${t.ok ? '' : '!'}`) });
         logTurn(out);
+        saveLastTurn(id, out);
         return sendJson(res, 200, { ...out, revs: draft?.revs || null });
       } catch (e) { logTurn(null, e); return storeError(res, e); }
+      finally { ACTIVE_TURNS--; }
+    }
+
+    // recover the last COMPLETED turn (e.g. the phone locked mid-marathon and the SSE died —
+    // the server finished anyway; the client adopts the result instead of going amnesiac)
+    if ((m = /^\/api\/studio\/author-chat\/([^/]+)\/last$/.exec(path)) && req.method === 'GET') {
+      const id = decodeURIComponent(m[1]);
+      const f = lastTurnFile(id);
+      if (!existsSync(f)) return sendJson(res, 404, { error: 'not_found' });
+      try { return sendJson(res, 200, JSON.parse(readFileSync(f, 'utf8'))); }
+      catch { return sendJson(res, 500, { error: 'unreadable' }); }
     }
 
     // ------------------------------------------------------- voice out (TTS) ----

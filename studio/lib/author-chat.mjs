@@ -21,9 +21,9 @@ const USING_MINIMAX = !!(process.env.MINIMAX_API_KEY || (process.env.AUTHOR_LLM_
 export const AUTHOR_LLM_URL = (process.env.AUTHOR_LLM_URL || (USING_MINIMAX ? 'https://api.minimax.io/v1' : `${OLLAMA}/v1`)).replace(/\/$/, '');
 export const AUTHOR_LLM_MODEL = process.env.AUTHOR_LLM_MODEL || (USING_MINIMAX ? 'MiniMax-M3' : MODEL);
 
-const MAX_ROUNDS = 8;
+const MAX_ROUNDS = parseInt(process.env.AUTHOR_MAX_ROUNDS || '8', 10);
 // Caps are runaway guards, not budgets — generous by house rule.
-const MAX_TOKENS = parseInt(process.env.AUTHOR_LLM_MAX_TOKENS || '16384', 10);
+const MAX_TOKENS = parseInt(process.env.AUTHOR_LLM_MAX_TOKENS || '32768', 10);
 
 // ------------------------------------------------------------------ tools -----
 
@@ -249,6 +249,7 @@ THE FORMAT LAW (violations block publish):
 - Deterministic macros: {{random:a|b|c}}, {{pick:name:a|b|c}}, {{time}}, {{time_of_day}}, {{date}}, {{weekday}}.
 - Lore: keyed entries with timed effects (delay/cooldown/sticky), probability, equivoque groups. Rails: regex output cleanup.
 
+PACING LAW: work in SMALL UNITS. Never author more than ~2 beats' worth of templates in one turn — do a chunk, validate it, then END YOUR TURN with one line on what's next ("next: templates for S03-S04 — say continue"). The director drives the pace; a turn that grinds for many minutes feels broken.
 WORKFLOW: call get_module_overview FIRST. Then edit with tools — several calls per turn is normal. After substantive changes call validate and FIX the errors it reports. test_fill is a live model call — use it when a template's quality matters. Finish each turn by telling the director plainly what you changed and what's still missing.
 Publishing is human-only. Only this module's draft is writable.`;
 }
@@ -303,7 +304,11 @@ export async function runAuthorChat({ store, id, messages, emit = () => {}, llm 
   while (rounds < MAX_ROUNDS) {
     rounds++;
     emit('round', { n: rounds });
-    const msg = await llm(history, tools);
+    // heartbeat: marathon rounds (M3 writing dozens of templates) must never look dead
+    const t0 = Date.now();
+    const beat = setInterval(() => emit('working', { round: rounds, elapsed_s: Math.round((Date.now() - t0) / 1000) }), parseInt(process.env.AUTHOR_HEARTBEAT_MS || '10000', 10));
+    let msg;
+    try { msg = await llm(history, tools); } finally { clearInterval(beat); }
     const { thinking, text } = splitThinking(msg);
     if (thinking) { thinkingLog.push(thinking); emit('thinking', { text: thinking, round: rounds }); }
     const toolCalls = msg.tool_calls || [];
