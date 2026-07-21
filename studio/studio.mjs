@@ -388,11 +388,15 @@ const server = createServer(async (req, res) => {
       // gitignored log — so "the chat said X" is always auditable against "the tools did Y".
       const toolLedger = (t) => slog({ kind: 'author_tool', id, ...t });
       const lastUser = [...messages].reverse().find(m => m.role === 'user')?.content || '';
-      const logTurn = (out) => {
+      // Debug-first transcript: EVERY turn lands here, including the ones that die mid-loop —
+      // failed turns are the ones worth dissecting. Success entries carry the full turn; error
+      // entries carry the operator's ask + whatever the loop got through before it broke.
+      const logTurn = (out, error) => {
         try {
           appendFileSync(join(LOG_DIR, 'author-transcripts.jsonl'), JSON.stringify({
-            ts: new Date().toISOString(), id, user: lastUser, rounds: out.rounds,
-            thinking: out.thinking, tool_log: out.tool_log, reply: out.reply,
+            ts: new Date().toISOString(), id, user: lastUser, rounds: out?.rounds ?? 0,
+            thinking: out?.thinking ?? [], tool_log: out?.tool_log ?? [], reply: out?.reply ?? '',
+            ...(error ? { error: String(error.message || error) } : {}),
           }) + '\n');
         } catch (e) { console.error(`[transcript] ${e.message}`); }
       };
@@ -409,6 +413,7 @@ const server = createServer(async (req, res) => {
           logTurn(out);
           send('done', { messages: out.messages, tool_log: out.tool_log, rounds: out.rounds, revs: draft?.revs || null });
         } catch (e) {
+          logTurn(null, e);
           send('error', { error: e.code || 'error', detail: String(e.message || e) });
         }
         return res.end();
@@ -420,7 +425,7 @@ const server = createServer(async (req, res) => {
         slog({ kind: 'author_chat', id, rounds: out.rounds, tools: out.tool_log.map(t => `${t.tool}${t.ok ? '' : '!'}`) });
         logTurn(out);
         return sendJson(res, 200, { ...out, revs: draft?.revs || null });
-      } catch (e) { return storeError(res, e); }
+      } catch (e) { logTurn(null, e); return storeError(res, e); }
     }
 
     // ------------------------------------------------------- voice out (TTS) ----
