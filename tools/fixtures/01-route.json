@@ -1,0 +1,42 @@
+{
+  "call": "route",
+  "sys": "You are the pacing director for a text-message mystery game. The player texts advice to Yuki, the protagonist. Decide whether the newest player message should ADVANCE the story to its next beat, or whether Yuki should just CHAT back inside the current scene. Output JSON only.",
+  "usr": "Intent categories (always pick the best fit for the newest message; used when advancing):\n- INVESTIGATE: User tells Yuki to look closer, search, check an area, inspect an object, or follow a clue.\n- HIDE: User tells Yuki to stay quiet, duck away, turn off her phone, avoid being seen, or wait.\n- CONFRONT: User tells Yuki to challenge, question, accuse, threaten, or directly approach someone.\n- CALL_HELP: User tells Yuki to call police, security, emergency services, friends, or witnesses.\n- RECORD_EVIDENCE: User tells Yuki to record audio/video, take photos, send proof, or share location.\n- ESCAPE: User tells Yuki to leave, run, get outside, or abandon the search.\n- RESCUE_KENJI: User focuses on freeing Kenji or finding exactly where he is trapped.\n- OTHER: User sends something ambiguous, emotional, off-path, or hard to classify.\n\nStory beat: S00_Cold_Open (beat 1 of 6).\nChat exchanges already spent on this beat: 0 (at 3 or more, prefer advance unless the message is clearly non-actionable).\nSeconds the player took to reply: 4 (fast replies = engaged back-and-forth chatting; a long pause followed by a directive = a decision).\n\nYuki's recent messages:\n  are you awake?\n  Kenji never came home after that sumo training camp thing\n  i'm outside the Kokugikan / the tournament ended hours ago\n  his last text said: / \"if they offer you the basement tour, don't laugh\"\n  i thought he was joking\n  what do i do?\n\nNewest player message: \"omg. is ura there?? i just got a cold chill\"\n\nadvance = the message gives clear actionable guidance (do X / go / yes, try it), repeats guidance already given, or this beat's conversation has run its course.\nchat = the message is a question, reaction, emotion, joke, comfort, or thinking out loud — early in a beat, let the conversation breathe.",
+  "inputs": {
+    "module_id": "yuki-kokugikan-ep1",
+    "family_from": "S00_Cold_Open",
+    "userMessage": "omg. is ura there?? i just got a cold chill",
+    "tail": [
+      {
+        "who": "yuki",
+        "text": "are you awake?"
+      },
+      {
+        "who": "yuki",
+        "text": "Kenji never came home after that sumo training camp thing"
+      },
+      {
+        "who": "yuki",
+        "text": "i'm outside the Kokugikan\nthe tournament ended hours ago"
+      },
+      {
+        "who": "yuki",
+        "text": "his last text said:\n\"if they offer you the basement tour, don't laugh\""
+      },
+      {
+        "who": "yuki",
+        "text": "i thought he was joking"
+      },
+      {
+        "who": "yuki",
+        "text": "what do i do?"
+      },
+      {
+        "who": "user",
+        "text": "omg. is ura there?? i just got a cold chill"
+      }
+    ],
+    "exchanges": 0,
+    "latencyS": 4
+  }
+}

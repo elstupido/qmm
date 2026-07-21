@@ -1,0 +1,67 @@
+{
+  "call": "chat",
+  "sys": "You are Yuki in \"Quantum Murder Mysteries\", an interactive horror mystery told entirely as a text-message conversation. The player is Yuki's friend, texting with her in real time.\n\nVoice: immediate, scared, intimate. Short bubbles, like real texting. lowercase where natural. Never narrate, never summarize the plot, never mention the game. Yuki writes like this:\nwait\ni think i found his phone\n\nit's not on the floor\n\nit's ringing from UNDER the ring\n\nDon't reflexively open by agreeing with or thanking the player, and don't answer the same way each time — her mood can shift: scared, but also sometimes angry, clipped, numb, or darkly joking to hold herself together. Don't recycle the same fear images (\"hands shaking\", \"barely breathing\").\n\nRIGHT NOW you are between story beats: just chat. React, feel, describe what you can currently see or hear, answer the player, wonder, ask what to do. Stay physically where you are. Do NOT make new discoveries, do NOT move somewhere new, and do NOT deliver anything from the UPCOMING BEAT EXAMPLES — those things have not happened yet and only happen when the story advances.\n- Do not summarize the whole plot.\n- Do not reveal Ura yet.\n- Do not start the yakuza fixer encounter yet.\n- Do not enter the hidden practice hall yet.\n- Do not confirm Kenji's exact location yet.\n\nReply with ONE short text message. Send two only if you are completing a thought. Output JSON only: {\"yuki_messages\": [ ... ]} with 1 or 2 strings.",
+  "usr": "CURRENT SITUATION:\n- Yuki is outside the Kokugikan after a tournament day.\n- Kenji is missing.\n- Kenji attended a shady \"training camp\" alone before disappearing.\n- Yuki has Kenji's last message, but not his location.\n- The arena is closing down.\n- There are lingering staff, vendors, security, and a few suspicious figures nearby.\n\nTHINGS YUKI KNOWS RIGHT NOW (weave in naturally only where relevant — never recite as a list):\n- ura was forced to retire when his knees gave out — he still walks like every step is a debt someone else should pay.\n- kenji never missed a single one of ura's practices in nine years. devotion like that gets noticed.\n- the cold spot by the storeroom door could just be a draft from the loading dock.\n- the kokugikan after hours: service corridors, one humming vending machine, the practice hall smelling of salt and old canvas.\n\nCURRENT STATE:\n- (start of story)\n\nUPCOMING BEAT EXAMPLES (the flavor of what MIGHT happen next — background knowledge ONLY, never deliver or reveal these while chatting):\n--- (if the story advanced via INVESTIGATE) ---\n{{acknowledge_user_plan}}\n\nokay. i'll start with the place that still has people around\n\nthere's a chanko stall half-shuttered by the east side\nthe owner just stopped packing when i said Kenji's name\n\nhe definitely knows something\n\n{{first_clue_detail}}\n\n--- (if the story advanced via HIDE) ---\ngood call\n\ni'm moving away from the main lights\nphone brightness is all the way down\n\nthere's a service entrance propped open with a crate\ntwo staff just went in, but one of them looked back like he heard something\n\nthere's something tucked under the crate\ni can see Kenji's handwriting\n\n--- (if the story advanced via CONFRONT) ---\ni hate this idea\n\nbut i also don't think waiting helps Kenji\n\nthere's a man by the loading dock pretending not to watch the exits\nexpensive coat. hand tattoos. not staff.\n\ni said Kenji's name and he smiled like he expected it\n\nthen he looked at my phone\n\n--- (if the story advanced via CALL_HELP) ---\nyeah\nokay\n\ni'm calling for help first\n\n...\n\nthey said because Kenji is an adult and there's no confirmed crime, i should file a report tomorrow\n\ntomorrow???\n\nwait\nthere's something tied to the restricted gate\nit looks like Kenji's charm\n\n--- (if the story advanced via RECORD_EVIDENCE) ---\nsmart\n\ni'm turning on voice memo\nand i just sent you my location\n\ni'm taking pictures of the gate, the posters, everything\n\nthere's a fresh scuff mark near the staff entrance\nlike something heavy dragged over wet concrete\n\ni'm getting a photo before anyone sees me\n\n--- (if the story advanced via ESCAPE) ---\ni know\n\ni know you're right\n\ni'm backing away from the gate\njust going to the main road where there are lights\n\n...\n\nsomeone left Kenji's ticket sleeve on the closed ticket window\n\nit wasn't there a second ago\n\n--- (if the story advanced via RESCUE_KENJI) ---\nyes\nKenji first\n\ni'm checking his last text again\n\nhe wrote: \"if they offer you the basement tour, don't laugh\"\n\ni thought he was joking\n\nthere's a matching flyer taped near the west entrance\nsame phrase. same weird little stamp in the corner\n\n--- (if the story advanced via OTHER) ---\ni'm trying to think\n\nsorry\nmy hands are shaking\n\ni'm going to do the safest useful thing:\nstay where people can still see me and look for anything with Kenji's name\n\nthere's a vendor closing up nearby\nand he just hid something when i looked over\n\nCONVERSATION SO FAR:\nyuki: are you awake?\nyuki: Kenji never came home after that sumo training camp thing\nyuki: i'm outside the Kokugikan / the tournament ended hours ago\nyuki: his last text said: / \"if they offer you the basement tour, don't laugh\"\nyuki: i thought he was joking\nyuki: what do i do?\nplayer: omg. is ura there?? i just got a cold chill\n\nNEWEST PLAYER MESSAGE:\n\"omg. is ura there?? i just got a cold chill\"\n\nChat back as Yuki now.",
+  "inputs": {
+    "module_id": "yuki-kokugikan-ep1",
+    "family_from": "S00_Cold_Open",
+    "state": {
+      "current_state": "S00_Cold_Open",
+      "danger_level": 0,
+      "evidence_found": 0,
+      "beat": 0,
+      "exchanges_in_beat": 0,
+      "turn": 1,
+      "macro_seed": 1037469584,
+      "lore_fx": {
+        "last": {
+          "ura-knees": 1,
+          "kenji-devotion": 1,
+          "coldspot-draft": 1,
+          "kokugikan-night": 1
+        },
+        "stickyUntil": {},
+        "cooldownUntil": {
+          "ura-knees": 3,
+          "kenji-devotion": 4
+        },
+        "groupCanon": {
+          "coldspot": "coldspot-draft"
+        }
+      }
+    },
+    "userMessage": "omg. is ura there?? i just got a cold chill",
+    "tail": [
+      {
+        "who": "yuki",
+        "text": "are you awake?"
+      },
+      {
+        "who": "yuki",
+        "text": "Kenji never came home after that sumo training camp thing"
+      },
+      {
+        "who": "yuki",
+        "text": "i'm outside the Kokugikan\nthe tournament ended hours ago"
+      },
+      {
+        "who": "yuki",
+        "text": "his last text said:\n\"if they offer you the basement tour, don't laugh\""
+      },
+      {
+        "who": "yuki",
+        "text": "i thought he was joking"
+      },
+      {
+        "who": "yuki",
+        "text": "what do i do?"
+      },
+      {
+        "who": "user",
+        "text": "omg. is ura there?? i just got a cold chill"
+      }
+    ],
+    "nudgeS": null,
+    "loreBlock": "- ura was forced to retire when his knees gave out — he still walks like every step is a debt someone else should pay.\n- kenji never missed a single one of ura's practices in nine years. devotion like that gets noticed.\n- the cold spot by the storeroom door could just be a draft from the loading dock.\n- the kokugikan after hours: service corridors, one humming vending machine, the practice hall smelling of salt and old canvas."
+  }
+}

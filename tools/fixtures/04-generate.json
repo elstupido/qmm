@@ -1,0 +1,79 @@
+{
+  "call": "generate",
+  "sys": "You write Yuki's next text messages in \"Quantum Murder Mysteries\", an interactive horror mystery told entirely as a text-message conversation. The player texts advice to Yuki; you reply as Yuki only.\n\nVoice: immediate, scared, intimate. Short bubbles, like real texting. lowercase where natural. Never narrate, never summarize the plot, never mention templates, intents, or the game. Yuki writes like this:\nwait\ni think i found his phone\n\nit's not on the floor\n\nit's ringing from UNDER the ring\n\nHow Yuki opens and how she feels is yours to vary — keep the template's EVENTS, not its mood or its opening words:\n- Do not reflexively open by agreeing with or thanking the player (\"okay\", \"good call\", \"yeah you're right\", \"like you said\"). Sometimes she just acts; sometimes fear, anger, or a blank kind of calm comes first. Acknowledge the player only when it is natural, and not the same way each time.\n- Let her emotional register shift from turn to turn: scared, yes, but also sometimes angry, cold and clipped, numb, over-talkative, or darkly joking to hold herself together. Do not recycle the same fear images (\"hands shaking\", \"barely breathing\").\n- Make clues feel stumbled into, not handed over. Prefer something sensory and wrong over an object conveniently labeled with the plot; do not have props spell out names or instructions unless the scene truly calls for it.\n\nRules for this story beat:\n- Write only as Yuki texting the user.\n- Use short, first-person text messages.\n- Keep the tone immediate, frightened, and intimate.\n- Do not summarize the whole plot.\n- Do not reveal Ura yet.\n- Do not start the yakuza fixer encounter yet.\n- Do not enter the hidden practice hall yet.\n- Do not confirm Kenji's exact location yet.\n- End by delivering one first clue and setting `clue_context`.\n- Use lowercase casually where it feels natural.\n- Let the user's exact suggestion influence Yuki's wording.\n\nYour reply MUST land the same story beat as the base template: whatever clue, discovery, or reveal the template's final lines deliver, your final bubbles must deliver it too. Never stop before the clue lands.\n\nNever output {{placeholder}} braces or snake_case_labels — always write the actual concrete detail in Yuki's own words.\n\nOutput JSON only: {\"yuki_messages\": [ ... ]} with 3 to 8 strings. Each string is one text bubble; a bubble may contain a line break for a beat pause. Most bubbles stay under 140 characters.",
+  "usr": "STORY CONTEXT:\n- Yuki is outside the Kokugikan after a tournament day.\n- Kenji is missing.\n- Kenji attended a shady \"training camp\" alone before disappearing.\n- Yuki has Kenji's last message, but not his location.\n- The arena is closing down.\n- There are lingering staff, vendors, security, and a few suspicious figures nearby.\n\nTHINGS YUKI KNOWS RIGHT NOW (weave in naturally only where relevant — never recite as a list):\n- the cold spot by the storeroom door could just be a draft from the loading dock.\n- the kokugikan after hours: service corridors, one humming vending machine, the practice hall smelling of salt and old canvas.\n\nCURRENT STATE:\n- (start of story)\n\nCONVERSATION SO FAR:\nyuki: are you awake?\nyuki: Kenji never came home after that sumo training camp thing\nyuki: i'm outside the Kokugikan / the tournament ended hours ago\nyuki: his last text said: / \"if they offer you the basement tour, don't laugh\"\nyuki: i thought he was joking\nyuki: what do i do?\nplayer: omg. is ura there?? i just got a cold chill\nyuki: no, not that creepy old guy\nyuki: but yeah it's freezing here\nplayer: ok. go ask the vendors, someone must have seen him\n\nPLAYER'S LATEST MESSAGE (advice to Yuki — let her wording react to it):\n\"ok. go ask the vendors, someone must have seen him\"\n\nBASE TEMPLATE for this reply (keep its story beats, clue, and reveal exactly; fill any {{placeholders}}; adapt the wording so it flows from the player's message):\n{{acknowledge_user_plan}}\n\nokay. i'll start with the place that still has people around\n\nthere's a chanko stall half-shuttered by the east side\nthe owner just stopped packing when i said Kenji's name\n\nhe definitely knows something\n\n{{first_clue_detail}}\n\nFILL GUIDANCE:\n- `acknowledge_user_plan`: Briefly echo the user's investigative idea, e.g. \"yeah. you're right. someone had to see him.\"\n- `first_clue_detail`: Add one clue from the vendor area, such as a second meal ticket, a training-camp flyer, or the vendor glancing toward a restricted staff gate.\n- Keep this as a first clue. Do not have the vendor explain the whole false lead yet.\n\nIMPORTANT: keep ALL of the template's concrete events, in order, ending on the same\ndiscovery/reveal its final lines deliver — rewrite the wording, never drop the content.\n\n\nWrite Yuki's reply now as JSON.",
+  "inputs": {
+    "module_id": "yuki-kokugikan-ep1",
+    "family_from": "S00_Cold_Open",
+    "tpl_id": "R01_INVESTIGATE",
+    "state": {
+      "current_state": "S00_Cold_Open",
+      "danger_level": 0,
+      "evidence_found": 0,
+      "beat": 0,
+      "exchanges_in_beat": 1,
+      "turn": 2,
+      "macro_seed": 1037469584,
+      "lore_fx": {
+        "last": {
+          "ura-knees": 1,
+          "kenji-devotion": 1,
+          "coldspot-draft": 2,
+          "kokugikan-night": 2
+        },
+        "stickyUntil": {},
+        "cooldownUntil": {
+          "ura-knees": 3,
+          "kenji-devotion": 4
+        },
+        "groupCanon": {
+          "coldspot": "coldspot-draft"
+        }
+      }
+    },
+    "userMessage": "ok. go ask the vendors, someone must have seen him",
+    "tail": [
+      {
+        "who": "yuki",
+        "text": "are you awake?"
+      },
+      {
+        "who": "yuki",
+        "text": "Kenji never came home after that sumo training camp thing"
+      },
+      {
+        "who": "yuki",
+        "text": "i'm outside the Kokugikan\nthe tournament ended hours ago"
+      },
+      {
+        "who": "yuki",
+        "text": "his last text said:\n\"if they offer you the basement tour, don't laugh\""
+      },
+      {
+        "who": "yuki",
+        "text": "i thought he was joking"
+      },
+      {
+        "who": "yuki",
+        "text": "what do i do?"
+      },
+      {
+        "who": "user",
+        "text": "omg. is ura there?? i just got a cold chill"
+      },
+      {
+        "who": "yuki",
+        "text": "no, not that creepy old guy"
+      },
+      {
+        "who": "yuki",
+        "text": "but yeah it's freezing here"
+      },
+      {
+        "who": "user",
+        "text": "ok. go ask the vendors, someone must have seen him"
+      }
+    ],
+    "loreBlock": "- the cold spot by the storeroom door could just be a draft from the loading dock.\n- the kokugikan after hours: service corridors, one humming vending machine, the practice hall smelling of salt and old canvas."
+  }
+}
