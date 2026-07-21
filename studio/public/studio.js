@@ -280,9 +280,33 @@ function renderStory() {
   addRow.style.marginTop = '8px';
   main.append(addRow);
 
+  main.append(el('h2', '', 'SillyTavern bridge'), el('p', 'hint', 'take the module into the ST workbench: the protagonist as a character card, lore (+ beat templates) as a World Info book. Edits in ST flow back via lorebook export → Lore panel import; template entries are one-way and auto-skipped on re-import.'));
+  const stRow = el('div', 'row');
+  const dlCard = el('button', '', `Download ${manifest.character?.name || 'character'} card (.json)`);
+  dlCard.onclick = () => downloadJson(`api/studio/st/card/${S.id}`, `${(manifest.character?.name || 'character').toLowerCase()}-card.json`);
+  let withTpl = true;
+  const tplToggle = el('button', '', 'templates: on');
+  tplToggle.onclick = () => { withTpl = !withTpl; tplToggle.textContent = `templates: ${withTpl ? 'on' : 'off'}`; };
+  const dlBook = el('button', '', 'Download World Info (.json)');
+  dlBook.onclick = () => downloadJson(`api/studio/st/lorebook/${S.id}?templates=${withTpl ? 1 : 0}`, `QMM — ${S.id}.json`);
+  stRow.append(dlCard, dlBook, tplToggle);
+  main.append(stRow);
+
   main.append(el('h2', '', 'Validation'));
   main.append(Object.assign(el('div', 'lint'), { id: 'lint-panel' }));
   renderLintInto($('lint-panel'));
+}
+
+async function downloadJson(path, filename) {
+  try {
+    const data = await api('GET', path);
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const a = el('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  } catch (e) { toast(`download failed: ${e.message}`, true); }
 }
 
 function input(v) { const i = el('input'); i.type = 'text'; i.value = esc(v); return i; }

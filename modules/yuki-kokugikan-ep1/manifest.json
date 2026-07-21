@@ -17,5 +17,8 @@
     "nocebo": false,
     "dual_reality": false
   },
-  "pack": "pack.json"
+  "pack": "pack.json",
+  "character": {
+    "name": "Yuki"
+  }
 }

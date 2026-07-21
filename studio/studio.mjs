@@ -28,6 +28,7 @@ import * as scratchSessions from './lib/scratch-sessions.mjs';
 import { Publisher } from './lib/publish.mjs';
 import { convertLorebook } from '../server/lorebook-import.mjs';
 import { digest } from './lib/signals.mjs';
+import { toCharacterCard, toWorldInfo, stripTemplateEntries } from './lib/st-bridge.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(here, '..');
@@ -364,6 +365,17 @@ const server = createServer(async (req, res) => {
       return sendJson(res, 200, digest(LOG_DIR, { days, moduleId }));
     }
 
+    // ------------------------------------------------- SillyTavern bridge ----
+    // Export the module into the ST workbench: the protagonist as a Chara Card V2, and
+    // lore (+ optionally the beat templates as rehearsal context) as a World Info book.
+    if ((m = /^\/api\/studio\/st\/(card|lorebook)\/([^/]+)$/.exec(path)) && req.method === 'GET') {
+      const id = decodeURIComponent(m[2]);
+      const mod = draftModule(id);
+      if (!mod) return sendJson(res, 404, { error: 'unknown_module', detail: id });
+      if (m[1] === 'card') return sendJson(res, 200, toCharacterCard(mod));
+      return sendJson(res, 200, toWorldInfo(mod, { includeTemplates: url.searchParams.get('templates') === '1' }));
+    }
+
     // ------------------------------------------------- ST lorebook import ----
     if ((m = /^\/api\/studio\/import-lorebook\/([^/]+)$/.exec(path)) && req.method === 'POST') {
       if (!requireToken(req, res)) return;
@@ -372,7 +384,10 @@ const server = createServer(async (req, res) => {
       try {
         const draft = store.loadDraft(id);
         if (!draft) return sendJson(res, 404, { error: 'not_found', detail: `draft ${id}` });
-        const { doc, imported, warnings } = convertLorebook(body.st_book, { existingDoc: draft.lore, merge: !!body.merge });
+        // one-way template entries exported by the bridge must never re-import as lore
+        const { book, stripped } = stripTemplateEntries(body.st_book);
+        const { doc, imported, warnings } = convertLorebook(book, { existingDoc: draft.lore, merge: !!body.merge });
+        if (stripped) warnings.push(`${stripped} [qmm-template] rehearsal entr${stripped === 1 ? 'y' : 'ies'} skipped (one-way export, not lore)`);
         const { rev } = store.saveDoc(id, 'lore', doc, body.base_rev ?? draft.revs.lore);
         slog({ kind: 'lorebook_import', id, imported, merge: !!body.merge });
         return sendJson(res, 200, { imported, warnings, rev });
