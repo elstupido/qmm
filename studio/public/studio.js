@@ -113,7 +113,7 @@ function renderLintInto(host) {
 }
 
 /* ----------------------------------------------------------------- router */
-const routes = { dash: renderDash, story: renderStory, beats: renderBeats, lore: renderLore, test: renderTest, play: renderPlay, publish: renderPublish };
+const routes = { dash: renderDash, story: renderStory, beats: renderBeats, lore: renderLore, test: renderTest, play: renderPlay, publish: renderPublish, signals: renderSignals };
 
 function nav() {
   const h = location.hash || '#/';
@@ -887,6 +887,81 @@ function renderLore() {
   testIn.oninput = testRail;
   testRail();
   main.append(testIn, testOut);
+}
+
+/* ---------------------------------------------------------------- signals */
+async function renderSignals() {
+  main.innerHTML = '';
+  main.append(el('h1', '', 'Signals'), el('p', 'sub', 'flight-log digest — aggregates only, no player text ever crosses this panel'));
+  let d;
+  try { d = await api('GET', `api/studio/signals?days=14&module_id=${encodeURIComponent(S.id)}`); }
+  catch (e) { main.append(el('p', 'boot', `signals failed: ${e.message}`)); return; }
+
+  const t = d.totals;
+  const cards = el('div', 'cards');
+  const stat = (label, value, cls) => {
+    const c = el('div', 'card');
+    c.append(el('div', 'meta', label), el('h3', cls || '', String(value)));
+    return c;
+  };
+  cards.append(
+    stat('turns (14d)', t.turns),
+    stat('chat / advance', `${t.chat} / ${t.advance}`),
+    stat('forced advances', t.forced, t.forced ? 'warn' : ''),
+    stat('fallbacks (route/gen)', `${t.route_fallback} / ${t.gen_fallback}`),
+    stat('parse fails', t.parse_fail, t.parse_fail ? 'warn' : ''),
+    stat('BRACES incidents', t.braces, t.braces ? 'err' : ''),
+    stat('sessions started', t.new_sessions),
+    stat('STOP words', t.stop_words, t.stop_words ? 'warn' : ''),
+  );
+  main.append(cards);
+
+  main.append(el('h2', '', 'Lore firing (14d)'));
+  const lt = el('table', 'updates');
+  lt.innerHTML = '<thead><tr><th>entry</th><th>fired</th></tr></thead>';
+  const ltb = el('tbody');
+  const fired = Object.entries(t.lore_fired).sort((a, b) => b[1] - a[1]);
+  if (!fired.length) ltb.innerHTML = '<tr><td colspan=2 class="raw">no lore fired in range</td></tr>';
+  for (const [id, n] of fired) {
+    const tr = el('tr');
+    tr.append(el('td', 'mono', id), el('td', '', String(n)));
+    ltb.appendChild(tr);
+  }
+  lt.append(ltb);
+  main.append(lt);
+
+  if (Object.keys(t.endings).length) {
+    main.append(el('h2', '', 'Endings (14d)'));
+    const et = el('table', 'updates');
+    et.innerHTML = '<thead><tr><th>ending</th><th>count</th></tr></thead>';
+    const etb = el('tbody');
+    for (const [k, n] of Object.entries(t.endings).sort((a, b) => b[1] - a[1])) {
+      const tr = el('tr');
+      tr.append(el('td', 'mono', k), el('td', '', String(n)));
+      etb.appendChild(tr);
+    }
+    et.append(etb);
+    main.append(et);
+  }
+
+  main.append(el('h2', '', 'By day'));
+  const dt = el('table', 'updates');
+  dt.innerHTML = '<thead><tr><th>day</th><th>turns</th><th>chat/adv</th><th>forced</th><th>fallbacks</th><th>route p50/p95</th><th>gen p50/p95</th><th>nudges</th></tr></thead>';
+  const dtb = el('tbody');
+  if (!d.days.length) dtb.innerHTML = '<tr><td colspan=8 class="raw">no flight-log entries in range</td></tr>';
+  for (const s of d.days) {
+    const tr = el('tr');
+    tr.append(
+      el('td', 'mono', s.day), el('td', '', String(s.turns)), el('td', '', `${s.chat}/${s.advance}`),
+      el('td', '', String(s.forced)), el('td', '', `${s.route_fallback}/${s.gen_fallback}`),
+      el('td', 'raw', s.route_ms.p50 == null ? '—' : `${s.route_ms.p50}/${s.route_ms.p95}ms`),
+      el('td', 'raw', s.gen_ms.p50 == null ? '—' : `${s.gen_ms.p50}/${s.gen_ms.p95}ms`),
+      el('td', '', String(s.nudges)),
+    );
+    dtb.appendChild(tr);
+  }
+  dt.append(dtb);
+  main.append(dt);
 }
 
 /* ------------------------------------------------------- stubs (later phases) */

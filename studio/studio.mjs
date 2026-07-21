@@ -27,6 +27,7 @@ import { DraftStore } from './lib/draft-store.mjs';
 import * as scratchSessions from './lib/scratch-sessions.mjs';
 import { Publisher } from './lib/publish.mjs';
 import { convertLorebook } from '../server/lorebook-import.mjs';
+import { digest } from './lib/signals.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(here, '..');
@@ -348,6 +349,14 @@ const server = createServer(async (req, res) => {
       const sess = scratchSessions.loadSession(playId, moduleId);
       if (!sess) return sendJson(res, 404, { error: 'not_found' });
       return sendJson(res, 200, sess);
+    }
+
+    // ------------------------------------------------------------ signals ----
+    // Aggregates ONLY — the flight log holds raw player text; none of it crosses this endpoint.
+    if (req.method === 'GET' && path === '/api/studio/signals') {
+      const days = Math.min(60, Math.max(1, parseInt(url.searchParams.get('days') || '7', 10) || 7));
+      const moduleId = url.searchParams.get('module_id') || undefined;
+      return sendJson(res, 200, digest(LOG_DIR, { days, moduleId }));
     }
 
     // ------------------------------------------------- ST lorebook import ----
