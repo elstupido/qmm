@@ -167,7 +167,11 @@ async function renderDash() {
   main.append(el('h1', '', 'Modules'), el('p', 'sub', 'live episodes and working drafts'));
   let list;
   try { list = (await api('GET', 'api/studio/modules')).modules; S.modules = list; }
-  catch (e) { main.append(el('p', 'boot', `cannot list modules: ${e.message}`)); return; }
+  catch (e) {
+    main.append(el('p', 'boot', `cannot list modules: ${e.message}`));
+    if (e.status === 403 || e.status === 503) main.append(el('p', 'boot', 'this studio gates ALL reads — set the write token (bottom left), then reload.'));
+    return;
+  }
 
   const cards = el('div', 'cards');
   for (const mod of list) {

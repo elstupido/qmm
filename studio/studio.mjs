@@ -43,6 +43,10 @@ const SCAFFOLD_DIR = join(here, 'scaffold');
 const PORT = parseInt(process.env.PORT || '8792', 10);
 const PLAYER_URL = (process.env.PLAYER_URL || 'http://127.0.0.1:8791').replace(/\/$/, '');
 const STUDIO_TOKEN = process.env.STUDIO_TOKEN || '';
+// STUDIO_GATE_READS=1: EVERY /api/* call requires the token, reads included — drafts and signals
+// are story content and operator data. Set in prod so the public route is safe even before (or
+// without) a Cloudflare Access policy. Static UI files stay public: generic code, no content.
+const GATE_READS = process.env.STUDIO_GATE_READS === '1';
 
 const store = new DraftStore({ modulesDir: MODULES_DIR, draftsDir: DRAFTS_DIR, scaffoldDir: SCAFFOLD_DIR });
 const publisher = new Publisher({
@@ -173,6 +177,7 @@ const server = createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
   const path = url.pathname;
   try {
+    if (GATE_READS && path.startsWith('/api/') && !requireToken(req, res)) return;
     if (req.method === 'GET' && path === '/api/health') return sendJson(res, 200, await health());
 
     // ------------------------------------------------------------ modules ----
