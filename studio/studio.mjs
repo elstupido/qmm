@@ -370,7 +370,11 @@ const server = createServer(async (req, res) => {
     // Chat-first authoring: the LLM engine (MiniMax-M3 when MINIMAX_API_KEY is set; any
     // OpenAI-compatible endpoint otherwise) does the data-entry through draft-writing tools.
     if (req.method === 'GET' && path === '/api/studio/author-info') {
-      return sendJson(res, 200, { url: AUTHOR_LLM_URL, model: AUTHOR_LLM_MODEL, keyed: !!(process.env.AUTHOR_LLM_KEY || process.env.MINIMAX_API_KEY) });
+      return sendJson(res, 200, {
+        url: AUTHOR_LLM_URL, model: AUTHOR_LLM_MODEL, keyed: !!(process.env.AUTHOR_LLM_KEY || process.env.MINIMAX_API_KEY),
+        // the LAW: authoring engine writes, the game engine runs — test_fill/bench/playtest all hit the game engine
+        game_engine: { model: MODEL, url: OLLAMA },
+      });
     }
     if ((m = /^\/api\/studio\/author-chat\/([^/]+)$/.exec(path)) && req.method === 'POST') {
       if (!requireToken(req, res)) return;

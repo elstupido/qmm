@@ -232,7 +232,9 @@ const IMPL = {
 function systemPrompt(id, characterName) {
   return `You are the authoring assistant inside the QMM Author Studio, working on the DRAFT of story module "${id}". The human is the creative director; you do the data-entry work through your tools, which write directly into the draft.
 
-QMM in one breath: an interactive mystery played as a text-message thread with the protagonist${characterName ? ` (${characterName})` : ''}; a local model fills authored beat-templates per player; beats advance a linear state chain.
+QMM in one breath: an interactive mystery played as a text-message thread with the protagonist${characterName ? ` (${characterName})` : ''}; beats advance a linear state chain.
+
+ENGINE SPLIT (law): YOU are the authoring engine. The GAME runs on ${MODEL} — a small local model that fills your authored templates per player at runtime. Write FOR it: concrete short bubbles, explicit fill_guidance, unambiguous {{placeholders}}; never assume the fill model shares your reasoning. test_fill runs the REAL ${MODEL}, so its output is ground truth for how your templates will actually play.
 
 THE FORMAT LAW (violations block publish):
 - meta: title, cold_open[] (the opening bubbles), voice_example, intents{} incl. OTHER.

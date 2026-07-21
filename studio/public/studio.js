@@ -925,9 +925,9 @@ function renderAuthor() {
   if (!S.chat || S.chat.id !== S.id) S.chat = { id: S.id, messages: [], busy: false };
   const chat = S.chat;
 
-  const info = el('p', 'hint', 'engine: …');
+  const info = el('p', 'hint', 'engines: …');
   api('GET', 'api/studio/author-info').then(i => {
-    info.textContent = `engine: ${i.model} @ ${i.url}${i.keyed ? '' : ' (keyless local — set MINIMAX_API_KEY for MiniMax-M3)'}`;
+    info.textContent = `authoring: ${i.model}${i.keyed ? '' : ' (keyless local)'} · game/fill: ${i.game_engine?.model || '?'} — test_fill, bench, and playtest always run the game engine`;
   }).catch(() => { info.textContent = 'engine info unavailable'; });
   main.append(info);
 
