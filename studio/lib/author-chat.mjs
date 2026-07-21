@@ -29,12 +29,17 @@ const MAX_TOKENS = parseInt(process.env.AUTHOR_LLM_MAX_TOKENS || '32768', 10);
 
 const UPDATES_HINT = 'updates: array of {field, kind} objects. kinds: set{value}, add{n}, cond{raw}, set2{a,b}, skip. EVERY template must include {"field":"current_state","kind":"set","value":"<this family\'s to-state>"}. Final-beat templates must also set ending_route and ending_type.';
 
-function toolDefs(id) {
+export function toolDefs(id) {
   const T = (name, description, properties, required) => ({
     type: 'function',
     function: { name, description, parameters: { type: 'object', properties, required } },
   });
   return [
+    T('list_modules', 'List every module (live episodes and drafts): id, title, versions, listed-vs-dev status. Not module-scoped.', {}, []),
+    T('read_doc', 'Read a FULL draft document verbatim: manifest, pack, or lore. Use when the overview summary is not enough (e.g. to see exact template text before editing). For pack, family_from optionally narrows to one beat.', {
+      doc: { type: 'string', enum: ['manifest', 'pack', 'lore'] },
+      family_from: { type: 'string', description: 'pack only: return just this beat' },
+    }, ['doc']),
     T('get_module_overview', `Read the current draft of "${id}": manifest, meta, beat chain, template coverage, lore summary, and validation state. ALWAYS call this first.`, {}, []),
     T('set_character', 'Set the protagonist (manifest.character).', {
       name: { type: 'string' }, tagline: { type: 'string', description: 'optional one-line descriptor' },
@@ -85,6 +90,22 @@ function toolDefs(id) {
 // compact result the model can read. Throwing is fine; the loop reports the error back to it.
 // Exported for the tool test suite (tools/author-tools-test.mjs).
 export const TOOL_IMPL = {
+  list_modules({ store }) {
+    return { modules: store.list() };
+  },
+  read_doc({ store, id, args }) {
+    const d = store.loadDraft(id) || store.loadLive(id);
+    if (!d) throw new Error(`no module ${id}`);
+    const doc = String(args.doc || '');
+    if (!['manifest', 'pack', 'lore'].includes(doc)) throw new Error('doc must be manifest|pack|lore');
+    let out = d[doc];
+    if (doc === 'pack' && args.family_from && out?.families) {
+      const f = out.families.find(x => x.from === args.family_from);
+      if (!f) throw new Error(`no beat with from=${args.family_from}`);
+      out = { meta: { title: out.meta?.title, intents: out.meta?.intents }, family: f };
+    }
+    return { doc, content: out ?? null };
+  },
   get_module_overview({ store, id }) {
     const d = store.loadDraft(id);
     if (!d) throw new Error(`no draft for ${id}`);
@@ -346,4 +367,26 @@ function summarize(name, r) {
   if (name === 'upsert_template') return `${r.template_id} written${r.remaining_missing?.length ? `; missing on this beat: ${r.remaining_missing.join(', ')}` : ' — beat complete'}`;
   if (name === 'test_fill') return `${r.bubbles?.length ?? 0} bubbles, lore: ${(r.lore_fired || []).join(',') || '—'}${r.fallback ? ' FALLBACK' : ''}`;
   return JSON.stringify(r).slice(0, 160);
+}
+
+
+/**
+ * The authoring briefing for EXTERNAL agents (MCP clients bring their own system prompts).
+ * Same law the built-in chat gets, phrased for a client that must pass module_id explicitly.
+ */
+export function authoringBriefing() {
+  return `You are authoring a QMM story module through the Author Studio's tools. The human is the creative director; you do the data-entry work. Every tool (except list_modules) takes a module_id — pick it from list_modules, then ALWAYS call get_module_overview before editing.
+
+QMM in one breath: an interactive mystery played as a text-message thread with a protagonist; a small local model fills authored beat-templates per player at runtime; beats advance a linear state chain. You are the authoring brain — write FOR the small runtime model: concrete short bubbles, explicit fill_guidance, unambiguous {{placeholders}}. test_fill runs the REAL runtime model; its output is ground truth.
+
+THE FORMAT LAW (violations block publish):
+- meta: title, cold_open[] (opening bubbles), voice_example, intents{} incl. OTHER (router fallback).
+- Beats are a LINEAR chain: beat n's "to" === beat n+1's "from"; the final "to" is terminal.
+- EVERY beat needs a template for EVERY intent. Template bubbles: short lowercase text messages, one thought each, blank line between bubbles.
+- Every template's updates set current_state to exactly its beat's "to". Final-beat templates also set ending_route and ending_type.
+- Deterministic macros: {{random:a|b|c}}, {{pick:name:a|b|c}}, {{time}}, {{time_of_day}}, {{date}}, {{weekday}}.
+- Lore: keyed entries with timed effects (delay/cooldown/sticky), probability, equivoque groups (first to fire = that player's permanent canon). Rails: regex output cleanup.
+
+PACING LAW: work in SMALL UNITS (~2 beats of templates per exchange), validate after substantive changes and FIX what it reports, then stop and tell the director what's next.
+Publishing is human-only — there is no publish tool; the director uses the studio's Publish panel.`;
 }

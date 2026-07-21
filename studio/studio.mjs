@@ -29,7 +29,7 @@ import { Publisher } from './lib/publish.mjs';
 import { convertLorebook } from '../server/lorebook-import.mjs';
 import { digest } from './lib/signals.mjs';
 import { toCharacterCard, toWorldInfo, stripTemplateEntries } from './lib/st-bridge.mjs';
-import { runAuthorChat, AUTHOR_LLM_URL, AUTHOR_LLM_MODEL } from './lib/author-chat.mjs';
+import { runAuthorChat, AUTHOR_LLM_URL, AUTHOR_LLM_MODEL, TOOL_IMPL, toolDefs, authoringBriefing } from './lib/author-chat.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(here, '..');
@@ -379,6 +379,31 @@ const server = createServer(async (req, res) => {
       const days = Math.min(60, Math.max(1, parseInt(url.searchParams.get('days') || '7', 10) || 7));
       const moduleId = url.searchParams.get('module_id') || undefined;
       return sendJson(res, 200, digest(LOG_DIR, { days, moduleId }));
+    }
+
+    // ------------------------------------------------------ tool API (MCP) ----
+    // The generic doorway into TOOL_IMPL: same tools the built-in chat uses, callable by any
+    // external agent (the MCP proxy, scripts). Same ledger, same gauge, same guards.
+    if (req.method === 'GET' && path === '/api/studio/tooldefs') {
+      return sendJson(res, 200, { tools: toolDefs('<module>').map(t => t.function), briefing: authoringBriefing() });
+    }
+    if ((m = /^\/api\/studio\/tool\/([^/]+)\/([a-z_]+)$/.exec(path)) && req.method === 'POST') {
+      if (!requireToken(req, res)) return;
+      const id = decodeURIComponent(m[1]);
+      const tool = m[2];
+      const body = await readBody(req);
+      if (!TOOL_IMPL[tool]) return sendJson(res, 404, { error: 'unknown_tool', detail: tool });
+      const source = String(req.headers['x-qmm-source'] || 'tool-api').slice(0, 24);
+      ACTIVE_TURNS++;
+      try {
+        const args = body.args && typeof body.args === 'object' ? body.args : {};
+        const result = await TOOL_IMPL[tool]({ store, id, args });
+        slog({ kind: 'author_tool', id, tool, ok: true, source, args_digest: JSON.stringify(args).slice(0, 300), summary: JSON.stringify(result).slice(0, 200) });
+        return sendJson(res, 200, { ok: true, result });
+      } catch (e) {
+        slog({ kind: 'author_tool', id, tool, ok: false, source, summary: String(e.message || e).slice(0, 200) });
+        return sendJson(res, 400, { ok: false, error: String(e.message || e) });
+      } finally { ACTIVE_TURNS--; }
     }
 
     // --------------------------------------------------------- author chat ----
