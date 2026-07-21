@@ -383,15 +383,30 @@ const server = createServer(async (req, res) => {
       const body = await readBody(req);
       const messages = Array.isArray(body.messages) ? body.messages : [];
 
+      // Every tool execution lands in the ledger (name + summary + args digest), and every turn's
+      // full transcript (operator words, thinking, tools, reply) is appended to a dedicated
+      // gitignored log — so "the chat said X" is always auditable against "the tools did Y".
+      const toolLedger = (t) => slog({ kind: 'author_tool', id, ...t });
+      const lastUser = [...messages].reverse().find(m => m.role === 'user')?.content || '';
+      const logTurn = (out) => {
+        try {
+          appendFileSync(join(LOG_DIR, 'author-transcripts.jsonl'), JSON.stringify({
+            ts: new Date().toISOString(), id, user: lastUser, rounds: out.rounds,
+            thinking: out.thinking, tool_log: out.tool_log, reply: out.reply,
+          }) + '\n');
+        } catch (e) { console.error(`[transcript] ${e.message}`); }
+      };
+
       // Agent-style streaming: ?stream=1 narrates the loop as SSE (round/thinking/tool/
       // interim/reply/done) so folds and tool chips appear live in the chat.
       if (url.searchParams.get('stream') === '1') {
         res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store', connection: 'keep-alive' });
         const send = (event, data) => res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
         try {
-          const out = await runAuthorChat({ store, id, messages, emit: send });
+          const out = await runAuthorChat({ store, id, messages, emit: send, log: toolLedger });
           const draft = store.loadDraft(id);
           slog({ kind: 'author_chat', id, rounds: out.rounds, stream: true, tools: out.tool_log.map(t => `${t.tool}${t.ok ? '' : '!'}`) });
+          logTurn(out);
           send('done', { messages: out.messages, tool_log: out.tool_log, rounds: out.rounds, revs: draft?.revs || null });
         } catch (e) {
           send('error', { error: e.code || 'error', detail: String(e.message || e) });
@@ -400,9 +415,10 @@ const server = createServer(async (req, res) => {
       }
 
       try {
-        const out = await runAuthorChat({ store, id, messages });
+        const out = await runAuthorChat({ store, id, messages, log: toolLedger });
         const draft = store.loadDraft(id);
         slog({ kind: 'author_chat', id, rounds: out.rounds, tools: out.tool_log.map(t => `${t.tool}${t.ok ? '' : '!'}`) });
+        logTurn(out);
         return sendJson(res, 200, { ...out, revs: draft?.revs || null });
       } catch (e) { return storeError(res, e); }
     }

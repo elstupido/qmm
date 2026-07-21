@@ -83,12 +83,14 @@ function toolDefs(id) {
 
 // Tool implementations — each loads the draft fresh, mutates, saves rev-checked, and returns a
 // compact result the model can read. Throwing is fine; the loop reports the error back to it.
-const IMPL = {
+// Exported for the tool test suite (tools/author-tools-test.mjs).
+export const TOOL_IMPL = {
   get_module_overview({ store, id }) {
     const d = store.loadDraft(id);
     if (!d) throw new Error(`no draft for ${id}`);
     const pack = DraftStore.mergedPack(d);
     const v = validateModule({ manifest: d.manifest, pack, dirName: id });
+    const breaches = Array.isArray(d.pack?.breaches) ? d.pack.breaches : [];
     return {
       character: d.manifest.character || null,
       title: d.pack?.meta?.title,
@@ -102,10 +104,13 @@ const IMPL = {
       })),
       lore_entries: (d.lore?.lore?.entries || []).map(e => e.id),
       rails: (d.lore?.rails || []).length,
+      // visible so the agent can call out leftover scaffolding instead of shipping it silently
+      breaches: { count: breaches.length, has_todo_scaffolding: /\bTODO\b/.test(JSON.stringify(breaches)) },
       validation: { errors: v.errors.length, warnings: v.warnings.length, first_errors: v.errors.slice(0, 6) },
     };
   },
   set_character({ store, id, args }) {
+    if (!String(args.name || '').trim()) throw new Error('name is required');
     const d = store.loadDraft(id);
     d.manifest.character = { name: String(args.name), ...(args.tagline ? { tagline: String(args.tagline) } : {}) };
     store.saveDoc(id, 'manifest', d.manifest, d.revs.manifest);
@@ -284,7 +289,7 @@ export function splitThinking(msg) {
  * Returns {reply, thinking[], tool_log, rounds, messages} — messages = updated history to
  * persist client-side (original content incl. think blocks; display splitting is separate).
  */
-export async function runAuthorChat({ store, id, messages, emit = () => {} }) {
+export async function runAuthorChat({ store, id, messages, emit = () => {}, llm = callLLM, log = () => {} }) {
   const draft = store.loadDraft(id);
   if (!draft) throw Object.assign(new Error(`no draft ${id} — open the module first`), { code: 'not_found' });
 
@@ -298,7 +303,7 @@ export async function runAuthorChat({ store, id, messages, emit = () => {} }) {
   while (rounds < MAX_ROUNDS) {
     rounds++;
     emit('round', { n: rounds });
-    const msg = await callLLM(history, tools);
+    const msg = await llm(history, tools);
     const { thinking, text } = splitThinking(msg);
     if (thinking) { thinkingLog.push(thinking); emit('thinking', { text: thinking, round: rounds }); }
     const toolCalls = msg.tool_calls || [];
@@ -311,14 +316,16 @@ export async function runAuthorChat({ store, id, messages, emit = () => {} }) {
       let result;
       try {
         const args = JSON.parse(tc.function?.arguments || '{}');
-        if (!IMPL[name]) throw new Error(`unknown tool ${name}`);
-        result = await IMPL[name]({ store, id, args });
+        if (!args || typeof args !== 'object' || Array.isArray(args)) throw new Error('tool arguments must be a JSON object');
+        if (!TOOL_IMPL[name]) throw new Error(`unknown tool ${name}`);
+        result = await TOOL_IMPL[name]({ store, id, args });
         toolLog.push({ tool: name, ok: true, summary: summarize(name, result) });
       } catch (e) {
         result = { error: String(e.message || e) };
         toolLog.push({ tool: name, ok: false, summary: String(e.message || e).slice(0, 160) });
       }
       emit('tool', toolLog[toolLog.length - 1]);
+      log({ ...toolLog[toolLog.length - 1], args_digest: String(tc.function?.arguments || '').slice(0, 300) });
       history.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify(result) });
     }
   }

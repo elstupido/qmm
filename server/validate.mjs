@@ -251,6 +251,22 @@ export function validateModule({ manifest, pack, dirName, liveModule, ctxTokens 
     });
   }
 
+  // ------------------------------------------------- placeholder residue ----
+  // Scaffold TODO text is a non-empty string, so field-presence checks bless it. Hunt it
+  // explicitly: "ready to publish" must never be true with scaffolding still aboard.
+  {
+    const hits = [];
+    const walk = (o, path) => {
+      if (hits.length >= 12) return;
+      if (typeof o === 'string') { if (/\bTODO\b/.test(o)) hits.push({ path, snippet: o.slice(0, 60) }); return; }
+      if (Array.isArray(o)) { o.forEach((v, i) => walk(v, `${path}[${i}]`)); return; }
+      if (o && typeof o === 'object') for (const [k, v] of Object.entries(o)) walk(v, `${path}.${k}`);
+    };
+    walk(manifest, 'manifest');
+    walk(pack, 'pack');
+    for (const h of hits) warn('todo-placeholder', h.path, `placeholder text still aboard: ${JSON.stringify(h.snippet)}`);
+  }
+
   // -------------------------------------------------- publish-time (live) ---
   if (liveModule) {
     const liveFroms = new Set(liveModule.pack.families.map(f => f.from));
