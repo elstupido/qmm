@@ -14,12 +14,13 @@ if ($Stop) {
 
 if ($existing) { Write-Host "studio already up on http://127.0.0.1:$port"; exit 0 }
 
-# Author-chat engine: pick up the MiniMax key from ~/.env (Martin's convention) unless already set.
-if (-not $env:MINIMAX_API_KEY) {
-    $envFile = Join-Path $env:USERPROFILE '.env'
-    if (Test-Path $envFile) {
-        $line = Select-String -Path $envFile -Pattern '^MINIMAX_API_KEY=' | Select-Object -First 1
-        if ($line) { $env:MINIMAX_API_KEY = $line.Line.Split('=', 2)[1].Trim('"').Trim("'") }
+# Author-chat engine + voice: pick up MiniMax creds from ~/.env (Martin's convention) unless set.
+# MINIMAX_GROUP_ID upgrades TTS from browser voice to MiniMax voice automatically.
+$envFile = Join-Path $env:USERPROFILE '.env'
+foreach ($k in 'MINIMAX_API_KEY', 'MINIMAX_GROUP_ID') {
+    if (-not (Get-Item "env:$k" -ErrorAction SilentlyContinue).Value -and (Test-Path $envFile)) {
+        $line = Select-String -Path $envFile -Pattern "^$k=" | Select-Object -First 1
+        if ($line) { Set-Item "env:$k" $line.Line.Split('=', 2)[1].Trim('"').Trim("'") }
     }
 }
 

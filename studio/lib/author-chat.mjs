@@ -261,26 +261,50 @@ async function callLLM(messages, tools) {
 }
 
 /**
- * Run one operator turn of the author chat. `messages` = full prior history (client-owned),
- * WITHOUT the system prompt (injected here). Returns {reply, tool_log, rounds, messages} where
- * `messages` is the updated history to persist client-side.
+ * Split reasoning out of an assistant message for DISPLAY. MiniMax-M3 interleaves thinking as
+ * <think>…</think> blocks inside content (measured); some engines use reasoning_content/reasoning
+ * fields. The stored history keeps the ORIGINAL content (M3's interleaved thinking wants prior
+ * think blocks preserved across tool rounds); only the client rendering gets the split.
  */
-export async function runAuthorChat({ store, id, messages }) {
+export function splitThinking(msg) {
+  let thinking = String(msg.reasoning_content || msg.reasoning || '');
+  let text = String(msg.content || '');
+  const blocks = [...text.matchAll(/<think>([\s\S]*?)(?:<\/think>|$)/g)].map(m => m[1].trim());
+  if (blocks.length) {
+    thinking = [thinking, ...blocks].filter(Boolean).join('\n\n');
+    text = text.replace(/<think>[\s\S]*?(?:<\/think>|$)/g, '').trim();
+  }
+  return { thinking: thinking.trim(), text };
+}
+
+/**
+ * Run one operator turn of the author chat. `messages` = full prior history (client-owned),
+ * WITHOUT the system prompt (injected here). `emit(event, data)` is optional — when provided
+ * (SSE streaming), the loop narrates itself round by round: thinking / tool / reply events.
+ * Returns {reply, thinking[], tool_log, rounds, messages} — messages = updated history to
+ * persist client-side (original content incl. think blocks; display splitting is separate).
+ */
+export async function runAuthorChat({ store, id, messages, emit = () => {} }) {
   const draft = store.loadDraft(id);
   if (!draft) throw Object.assign(new Error(`no draft ${id} — open the module first`), { code: 'not_found' });
 
   const tools = toolDefs(id);
   const history = [{ role: 'system', content: systemPrompt(id, draft.manifest.character?.name) }, ...messages];
   const toolLog = [];
+  const thinkingLog = [];
   let rounds = 0;
   let reply = '';
 
   while (rounds < MAX_ROUNDS) {
     rounds++;
+    emit('round', { n: rounds });
     const msg = await callLLM(history, tools);
+    const { thinking, text } = splitThinking(msg);
+    if (thinking) { thinkingLog.push(thinking); emit('thinking', { text: thinking, round: rounds }); }
     const toolCalls = msg.tool_calls || [];
     history.push({ role: 'assistant', content: msg.content ?? '', ...(toolCalls.length ? { tool_calls: toolCalls } : {}) });
-    if (!toolCalls.length) { reply = msg.content || ''; break; }
+    if (!toolCalls.length) { reply = text; break; }
+    if (text) emit('interim', { text, round: rounds }); // M3 sometimes narrates between tool rounds
 
     for (const tc of toolCalls) {
       const name = tc.function?.name;
@@ -294,12 +318,14 @@ export async function runAuthorChat({ store, id, messages }) {
         result = { error: String(e.message || e) };
         toolLog.push({ tool: name, ok: false, summary: String(e.message || e).slice(0, 160) });
       }
+      emit('tool', toolLog[toolLog.length - 1]);
       history.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify(result) });
     }
   }
   if (!reply && rounds >= MAX_ROUNDS) reply = '(round cap reached — the tool work above was applied; ask me to continue)';
+  emit('reply', { text: reply });
 
-  return { reply, tool_log: toolLog, rounds, messages: history.slice(1) };
+  return { reply, thinking: thinkingLog, tool_log: toolLog, rounds, messages: history.slice(1) };
 }
 
 function summarize(name, r) {

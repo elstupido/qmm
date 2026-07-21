@@ -374,18 +374,76 @@ const server = createServer(async (req, res) => {
         url: AUTHOR_LLM_URL, model: AUTHOR_LLM_MODEL, keyed: !!(process.env.AUTHOR_LLM_KEY || process.env.MINIMAX_API_KEY),
         // the LAW: authoring engine writes, the game engine runs — test_fill/bench/playtest all hit the game engine
         game_engine: { model: MODEL, url: OLLAMA },
+        tts: { engine: (process.env.MINIMAX_API_KEY && process.env.MINIMAX_GROUP_ID) ? 'minimax' : 'browser', voice: process.env.STUDIO_TTS_VOICE || 'female-shaonv' },
       });
     }
     if ((m = /^\/api\/studio\/author-chat\/([^/]+)$/.exec(path)) && req.method === 'POST') {
       if (!requireToken(req, res)) return;
       const id = decodeURIComponent(m[1]);
       const body = await readBody(req);
+      const messages = Array.isArray(body.messages) ? body.messages : [];
+
+      // Agent-style streaming: ?stream=1 narrates the loop as SSE (round/thinking/tool/
+      // interim/reply/done) so folds and tool chips appear live in the chat.
+      if (url.searchParams.get('stream') === '1') {
+        res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store', connection: 'keep-alive' });
+        const send = (event, data) => res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+        try {
+          const out = await runAuthorChat({ store, id, messages, emit: send });
+          const draft = store.loadDraft(id);
+          slog({ kind: 'author_chat', id, rounds: out.rounds, stream: true, tools: out.tool_log.map(t => `${t.tool}${t.ok ? '' : '!'}`) });
+          send('done', { messages: out.messages, tool_log: out.tool_log, rounds: out.rounds, revs: draft?.revs || null });
+        } catch (e) {
+          send('error', { error: e.code || 'error', detail: String(e.message || e) });
+        }
+        return res.end();
+      }
+
       try {
-        const out = await runAuthorChat({ store, id, messages: Array.isArray(body.messages) ? body.messages : [] });
+        const out = await runAuthorChat({ store, id, messages });
         const draft = store.loadDraft(id);
         slog({ kind: 'author_chat', id, rounds: out.rounds, tools: out.tool_log.map(t => `${t.tool}${t.ok ? '' : '!'}`) });
         return sendJson(res, 200, { ...out, revs: draft?.revs || null });
       } catch (e) { return storeError(res, e); }
+    }
+
+    // ------------------------------------------------------- voice out (TTS) ----
+    // Auto-upgrading engine: MiniMax speech when key+GroupId are present (Martin's sub; add
+    // MINIMAX_GROUP_ID to ~/.env), else the client falls back to browser speechSynthesis.
+    if (req.method === 'POST' && path === '/api/studio/tts') {
+      if (!requireToken(req, res)) return;
+      const body = await readBody(req);
+      const text = String(body.text || '').slice(0, 2400);
+      const gid = process.env.MINIMAX_GROUP_ID || '';
+      const key = process.env.MINIMAX_API_KEY || '';
+      if (!text) return sendJson(res, 400, { error: 'no_text' });
+      if (!gid || !key) return sendJson(res, 200, { engine: 'browser' });
+      try {
+        // t2a_v2 shape proven in the SillyTavern MiniMax TTS integration
+        const r = await fetch(`https://api.minimax.io/v1/t2a_v2?GroupId=${encodeURIComponent(gid)}`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
+          body: JSON.stringify({
+            model: process.env.STUDIO_TTS_MODEL || 'speech-02-hd', text, stream: false,
+            voice_setting: { voice_id: process.env.STUDIO_TTS_VOICE || 'female-shaonv', speed: 1.0, vol: 1.0, pitch: 0 },
+            audio_setting: { sample_rate: 32000, bitrate: 128000, format: 'mp3', channel: 1 },
+          }),
+          signal: AbortSignal.timeout(60_000),
+        });
+        /** @type {any} */
+        const data = await r.json();
+        const hex = data?.data?.audio;
+        if (!r.ok || !hex || (data?.base_resp && data.base_resp.status_code !== 0)) {
+          slog({ kind: 'tts_error', status: r.status, base_resp: data?.base_resp || null });
+          return sendJson(res, 200, { engine: 'browser', note: 'minimax tts failed; falling back' });
+        }
+        const buf = Buffer.from(hex.replace(/^0x/, ''), 'hex');
+        res.writeHead(200, { 'content-type': 'audio/mpeg', 'content-length': buf.length, 'cache-control': 'no-store' });
+        return res.end(buf);
+      } catch (e) {
+        slog({ kind: 'tts_error', error: String(e.message || e) });
+        return sendJson(res, 200, { engine: 'browser', note: 'minimax tts unreachable; falling back' });
+      }
     }
 
     // ------------------------------------------------- SillyTavern bridge ----

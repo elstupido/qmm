@@ -131,6 +131,32 @@ table.updates .raw { color: var(--muted); font-family: var(--mono); font-size: 1
 }
 .toast.err { border-color: var(--err); }
 
+/* --------------------------------------------------------- agent chat ---- */
+.agent-wrap { max-width: 780px; margin: 0 auto; display: flex; flex-direction: column; min-height: calc(100vh - 140px); }
+.agent-head { display: flex; align-items: center; gap: 12px; padding-bottom: 14px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+.agent-avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 19px; }
+.agent-name { font-weight: 700; }
+.agent-thread { display: flex; flex-direction: column; gap: 10px; }
+.agent-thread.live { margin-top: 10px; }
+.agent-empty { color: var(--muted); padding: 34px 20px; text-align: center; line-height: 1.6; }
+.msg { padding: 10px 14px; border-radius: 14px; line-height: 1.5; white-space: pre-wrap; max-width: 86%; }
+.msg.user { align-self: flex-end; background: var(--blue); color: #fff; border-bottom-right-radius: 4px; }
+.msg.agent { align-self: flex-start; background: var(--panel); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
+.msg.agent.dim { color: var(--muted); font-size: 13px; }
+.fold { align-self: flex-start; max-width: 86%; }
+.fold summary { color: var(--muted); font-size: 12px; cursor: pointer; padding: 2px 6px; font-style: italic; }
+.fold summary::marker { color: var(--muted); }
+.fold-body { color: var(--muted); font-size: 12.5px; white-space: pre-wrap; border-left: 2px solid var(--line); padding: 6px 10px; margin: 4px 0 4px 8px; line-height: 1.5; }
+.chiprow { display: flex; flex-wrap: wrap; gap: 5px; align-self: flex-start; }
+.toolchip { font-size: 11px; font-family: var(--mono); color: var(--ok); border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px; background: var(--panel); }
+.toolchip.bad { color: var(--err); border-color: var(--err); }
+.agent-status { color: var(--muted); font-size: 12.5px; font-style: italic; padding: 4px 0; animation: pulse 1.6s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .45; } }
+.agent-composer { position: sticky; bottom: 0; display: flex; gap: 8px; align-items: flex-end; padding: 12px 0 16px; background: linear-gradient(transparent, var(--bg) 30%); margin-top: auto; }
+.agent-composer textarea { flex: 1; resize: none; border-radius: 12px; }
+.iconbtn { padding: 8px 10px; border-radius: 10px; font-size: 15px; line-height: 1; }
+.iconbtn.listening { background: var(--err); border-color: var(--err); animation: pulse 1.2s ease-in-out infinite; }
+
 .boot { color: var(--muted); padding: 40px; }
 .hint { color: var(--muted); font-size: 12px; margin-top: 4px; }
 hr.sep { border: 0; border-top: 1px solid var(--line); margin: 20px 0; }

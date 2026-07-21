@@ -118,7 +118,7 @@ const routes = { dash: renderDash, author: renderAuthor, story: renderStory, bea
 function nav() {
   const h = location.hash || '#/';
   let m;
-  if ((m = /^#\/m\/([^/]+)\/(\w+)$/.exec(h))) return openModule(decodeURIComponent(m[1]), m[2]);
+  if ((m = /^#\/m\/([^/]+)(?:\/(\w+))?$/.exec(h))) return openModule(decodeURIComponent(m[1]), m[2] || 'author');
   return show('dash');
 }
 
@@ -149,9 +149,9 @@ function show(panel) {
   document.querySelectorAll('nav a[data-nav]').forEach(a => {
     a.classList.toggle('active', a.dataset.nav === panel);
   });
-  const inModule = !!S.id && panel !== 'dash';
   $('nav-mod').style.display = S.id ? '' : 'none';
   $('nav-mod').textContent = S.id || 'module';
+  $('nav-tweak').style.display = S.id ? '' : 'none';
   for (const a of document.querySelectorAll('nav a[data-nav]')) {
     if (a.dataset.nav === 'dash') continue;
     a.style.display = S.id ? '' : 'none';
@@ -164,7 +164,7 @@ function show(panel) {
 /* -------------------------------------------------------------- dashboard */
 async function renderDash() {
   main.innerHTML = '';
-  main.append(el('h1', '', 'Modules'), el('p', 'sub', 'live episodes and working drafts'));
+  main.append(el('h1', '', 'Modules'), el('p', 'sub', 'pick a story to work on — you land in its Author chat; editors are one click away for tweaking'));
   let list;
   try { list = (await api('GET', 'api/studio/modules')).modules; S.modules = list; }
   catch (e) {
@@ -183,8 +183,8 @@ async function renderDash() {
     const row = el('div', 'row');
     if (mod.has_live) row.append(badge(mod.publish ? 'live' : 'dev-only', mod.publish ? 'live' : 'warn'));
     if (mod.has_draft) row.append(badge(mod.draft_differs ? 'draft differs' : 'draft = live', mod.draft_differs ? 'warn' : 'ok'));
-    const open = el('button', 'primary', mod.has_draft ? 'Open draft' : 'Edit (creates draft)');
-    open.onclick = () => { location.hash = `#/m/${encodeURIComponent(mod.id)}/story`; };
+    const open = el('button', 'primary', 'Open chat');
+    open.onclick = () => { location.hash = `#/m/${encodeURIComponent(mod.id)}`; };
     row.append(open);
     if (mod.has_draft && mod.has_live) {
       const rv = el('button', '', 'Discard draft');
@@ -210,7 +210,7 @@ async function renderDash() {
   btn.onclick = async () => {
     try {
       await api('POST', 'api/studio/modules', { id: idIn.value.trim(), title: titleIn.value.trim() || idIn.value.trim(), scaffold: 'dark-demo' });
-      location.hash = `#/m/${encodeURIComponent(idIn.value.trim())}/story`;
+      location.hash = `#/m/${encodeURIComponent(idIn.value.trim())}`;
     } catch (e) { toast(e.message, true); }
   };
   form.append(labeled('id', idIn), labeled('title', titleIn), el('div', 'hint', 'scaffold = the dark-demo stub: fill every TODO before it validates'), btn);
@@ -918,86 +918,252 @@ function renderLore() {
 }
 
 /* ------------------------------------------------------------ author chat */
+/* Agent-style: the default, top-level surface. The engine is "an agent with a story-building
+   skill" — live tool chips + thinking folds stream in; mic in, voice out; history persists
+   per module in localStorage. */
+
+const chatStoreKey = (id) => `qmm_author_chat_${id}`;
+const stripThink = (s) => String(s || '').replace(/<think>[\s\S]*?(?:<\/think>|$)/g, '').trim();
+const thinkOf = (s) => [...String(s || '').matchAll(/<think>([\s\S]*?)(?:<\/think>|$)/g)].map(x => x[1].trim()).filter(Boolean).join('\n\n');
+
+function loadChat(id) {
+  try { return { id, busy: false, ...JSON.parse(localStorage.getItem(chatStoreKey(id)) || '{}'), busy: false }; }
+  catch { return { id, messages: [], busy: false }; }
+}
+function persistChat(chat) {
+  try {
+    const msgs = chat.messages.slice(-80); // cap growth; the draft is the real record
+    localStorage.setItem(chatStoreKey(chat.id), JSON.stringify({ messages: msgs }));
+  } catch { /* quota — drop persistence silently */ }
+}
+
 function renderAuthor() {
   main.innerHTML = '';
-  main.append(el('h1', '', 'Author chat'), el('p', 'sub', 'the primary authoring flow: direct the story in plain words — the engine does the data entry through draft-writing tools'));
+  const name = S.draft?.manifest?.character?.name;
+  const wrap = el('div', 'agent-wrap');
+  main.append(wrap);
 
-  if (!S.chat || S.chat.id !== S.id) S.chat = { id: S.id, messages: [], busy: false };
+  const head = el('div', 'agent-head');
+  head.append(
+    el('div', 'agent-avatar', '✍'),
+    (() => {
+      const w = el('div');
+      w.append(el('div', 'agent-name', `Story agent — ${S.id}`), Object.assign(el('div', 'hint'), { id: 'agent-engines', textContent: 'engines: …' }));
+      return w;
+    })(),
+  );
+  wrap.append(head);
+
+  api('GET', 'api/studio/author-info').then(i => {
+    S.ttsEngine = i.tts?.engine || 'browser';
+    const eng = $('agent-engines');
+    if (eng) eng.textContent = `writes with ${i.model}${i.keyed ? '' : ' (keyless local)'} · the game runs on ${i.game_engine?.model || '?'} (tests hit the game engine)`;
+  }).catch(() => {});
+
+  if (!S.chat || S.chat.id !== S.id) S.chat = loadChat(S.id);
+  if (!Array.isArray(S.chat.messages)) S.chat.messages = [];
   const chat = S.chat;
 
-  const info = el('p', 'hint', 'engines: …');
-  api('GET', 'api/studio/author-info').then(i => {
-    info.textContent = `authoring: ${i.model}${i.keyed ? '' : ' (keyless local)'} · game/fill: ${i.game_engine?.model || '?'} — test_fill, bench, and playtest always run the game engine`;
-  }).catch(() => { info.textContent = 'engine info unavailable'; });
-  main.append(info);
+  const thread = el('div', 'agent-thread');
+  wrap.append(thread);
 
-  const thread = el('div');
-  thread.style.cssText = 'display:flex;flex-direction:column;gap:10px;max-width:860px;margin-bottom:14px;';
-  main.append(thread);
+  const addFold = (host, label, text, cls) => {
+    const det = el('details', `fold ${cls || ''}`);
+    det.append(el('summary', '', label));
+    const pre = el('div', 'fold-body', text);
+    det.append(pre);
+    host.append(det);
+    return det;
+  };
 
   const renderThread = () => {
     thread.innerHTML = '';
+    if (!chat.messages.length) {
+      thread.append(el('div', 'agent-empty', `direct the story in plain words — ${name ? name + ' and ' : ''}the whole module get built through this conversation. the editors in the sidebar are for tweaking my output by hand.`));
+    }
     for (const m of chat.messages) {
-      if (m.role === 'user') {
-        const b = el('div', 'card', m.content);
-        b.style.cssText = 'align-self:flex-end;background:var(--blue);color:#fff;max-width:70%;';
-        thread.append(b);
-      } else if (m.role === 'assistant') {
+      if (m.role === 'user') thread.append(el('div', 'msg user', m.content));
+      else if (m.role === 'assistant') {
+        const think = thinkOf(m.content);
+        if (think) addFold(thread, 'thought', think, 'think');
         if (m.tool_calls?.length) {
-          const row = el('div', 'row');
-          for (const tc of m.tool_calls) row.append(badge(tc.function?.name || 'tool', 'live'));
+          const row = el('div', 'chiprow');
+          for (const tc of m.tool_calls) row.append(el('span', 'toolchip', tc.function?.name || 'tool'));
           thread.append(row);
         }
-        if (m.content) {
-          const b = el('div', 'card', m.content);
-          b.style.maxWidth = '85%';
-          thread.append(b);
-        }
-      } else if (m.role === 'tool') {
-        // rendered via the log chips on the assistant turn; skip raw payloads
+        const text = stripThink(m.content);
+        if (text) thread.append(el('div', 'msg agent', text));
       }
     }
-    if (chat.lastLog?.length) {
-      const lg = el('div', 'lint');
-      for (const t of chat.lastLog) lg.append(el('div', `item ${t.ok ? '' : 'err'}`, `${t.tool}: ${t.summary}`));
-      thread.append(lg);
-    }
-    if (chat.busy) thread.append(el('p', 'hint', 'engine is working (tool rounds can take a minute on big asks)…'));
+    thread.scrollTop = thread.scrollHeight;
   };
   renderThread();
 
-  const inputTa = el('textarea');
-  inputTa.style.minHeight = '64px';
-  inputTa.placeholder = 'direct the story… e.g. "name the protagonist Noa, a night-shift guard; write the cold open and a 3-intent taxonomy"';
-  const row = el('div', 'row');
-  row.style.marginTop = '8px';
-  const send = el('button', 'primary', 'Send');
-  const reset = el('button', 'danger', 'Reset conversation');
-  reset.onclick = () => { S.chat = { id: S.id, messages: [], busy: false }; renderAuthor(); };
-  row.append(send, reset);
-  main.append(inputTa, row);
+  // live area appended below history during a streamed turn
+  const live = el('div', 'agent-thread live');
+  wrap.append(live);
 
-  send.onclick = async () => {
-    const text = inputTa.value.trim();
+  // ---- composer -----------------------------------------------------------
+  const composer = el('div', 'agent-composer');
+  const ta = el('textarea');
+  ta.placeholder = name ? `direct the story of ${name}…` : 'direct the story…';
+  ta.rows = 2;
+  const micBtn = el('button', 'iconbtn', '🎤');
+  micBtn.title = 'hold a thought, tap, talk';
+  const speakBtn = el('button', 'iconbtn', localStorage.getItem('studio_speak') === '1' ? '🔊' : '🔇');
+  speakBtn.title = 'speak replies';
+  const send = el('button', 'primary', 'Send');
+  const stop = el('button', 'danger', 'Stop');
+  stop.style.display = 'none';
+  const reset = el('button', 'iconbtn', '🗑');
+  reset.title = 'reset conversation (draft keeps everything already written)';
+  composer.append(micBtn, ta, speakBtn, send, stop, reset);
+  wrap.append(composer);
+
+  reset.onclick = () => {
+    if (!confirm('Reset this conversation? The draft keeps everything already written.')) return;
+    localStorage.removeItem(chatStoreKey(S.id));
+    S.chat = { id: S.id, messages: [], busy: false };
+    renderAuthor();
+  };
+
+  // ---- voice out ----------------------------------------------------------
+  speakBtn.onclick = () => {
+    const on = localStorage.getItem('studio_speak') === '1';
+    localStorage.setItem('studio_speak', on ? '0' : '1');
+    speakBtn.textContent = on ? '🔇' : '🔊';
+    if (on) { speechSynthesis?.cancel?.(); S.audioEl?.pause?.(); }
+  };
+  async function speak(text) {
+    if (localStorage.getItem('studio_speak') !== '1' || !text) return;
+    const clean = text.replace(/[*_`#>]|\[[^\]]*\]/g, '').slice(0, 2400);
+    try {
+      const token = localStorage.getItem('studio_token') || '';
+      const r = await fetch('api/studio/tts', { method: 'POST', headers: { 'content-type': 'application/json', 'x-studio-token': token }, body: JSON.stringify({ text: clean }) });
+      if (r.ok && (r.headers.get('content-type') || '').startsWith('audio/')) {
+        const blob = await r.blob();
+        S.audioEl?.pause?.();
+        S.audioEl = new Audio(URL.createObjectURL(blob));
+        S.audioEl.play();
+        return;
+      }
+    } catch { /* fall through to browser voice */ }
+    if ('speechSynthesis' in window) {
+      speechSynthesis.cancel();
+      speechSynthesis.speak(new SpeechSynthesisUtterance(clean));
+    }
+  }
+
+  // ---- voice in -----------------------------------------------------------
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) micBtn.style.display = 'none';
+  else {
+    let rec = null;
+    let baseText = '';
+    micBtn.onclick = () => {
+      if (rec) { rec.stop(); return; }
+      rec = new SR();
+      rec.lang = 'en-US';
+      rec.interimResults = true;
+      rec.continuous = true;
+      baseText = ta.value ? ta.value.replace(/\s*$/, ' ') : '';
+      micBtn.classList.add('listening');
+      rec.onresult = (ev) => {
+        let finals = '', interim = '';
+        for (const res of ev.results) (res.isFinal ? (finals += res[0].transcript + ' ') : (interim += res[0].transcript));
+        if (finals) { baseText += finals; }
+        ta.value = (baseText + interim).replace(/\s+/g, ' ');
+      };
+      rec.onend = () => { micBtn.classList.remove('listening'); rec = null; ta.focus(); };
+      rec.onerror = () => { micBtn.classList.remove('listening'); rec = null; };
+      rec.start();
+    };
+  }
+
+  // ---- send (streamed) ----------------------------------------------------
+  let aborter = null;
+  async function sendTurn() {
+    const text = ta.value.trim();
     if (!text || chat.busy) return;
-    inputTa.value = '';
+    ta.value = '';
     chat.messages.push({ role: 'user', content: text });
     chat.busy = true;
+    persistChat(chat);
     renderThread();
+    live.innerHTML = '';
+    send.style.display = 'none';
+    stop.style.display = '';
+    const status = el('div', 'agent-status', 'thinking…');
+    live.append(status);
+
+    aborter = new AbortController();
     try {
-      const r = await api('POST', `api/studio/author-chat/${S.id}`, { messages: chat.messages });
-      chat.messages = r.messages;
-      chat.lastLog = r.tool_log;
+      const token = localStorage.getItem('studio_token') || '';
+      const res = await fetch(`api/studio/author-chat/${S.id}?stream=1`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-studio-token': token },
+        body: JSON.stringify({ messages: chat.messages }),
+        signal: aborter.signal,
+      });
+      if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      let buf = '';
+      let finalReply = '';
+      let done = false;
+      while (!done) {
+        const { value, done: rdone } = await reader.read();
+        if (rdone) break;
+        buf += dec.decode(value, { stream: true });
+        let idx;
+        while ((idx = buf.indexOf('\n\n')) >= 0) {
+          const frame = buf.slice(0, idx);
+          buf = buf.slice(idx + 2);
+          const evM = /^event: (.+)$/m.exec(frame);
+          const dataM = /^data: (.+)$/m.exec(frame);
+          if (!evM || !dataM) continue;
+          const ev = evM[1];
+          let data = {};
+          try { data = JSON.parse(dataM[1]); } catch { continue; }
+          if (ev === 'round') status.textContent = `working — round ${data.n}…`;
+          else if (ev === 'thinking') addFold(live, 'thinking', data.text, 'think');
+          else if (ev === 'interim' && data.text) live.append(el('div', 'msg agent dim', data.text));
+          else if (ev === 'tool') {
+            const chip = el('span', `toolchip ${data.ok ? '' : 'bad'}`, `${data.tool}`);
+            chip.title = data.summary;
+            (live.lastElementChild?.classList?.contains('chiprow') ? live.lastElementChild : live.appendChild(el('div', 'chiprow'))).append(chip);
+          } else if (ev === 'reply') finalReply = data.text || '';
+          else if (ev === 'error') throw new Error(data.detail || data.error);
+          else if (ev === 'done') {
+            chat.messages = data.messages || chat.messages;
+            done = true;
+          }
+          thread.scrollTop = thread.scrollHeight;
+          live.scrollIntoView({ block: 'end' });
+        }
+      }
+      persistChat(chat);
       S.draft = await api('GET', `api/studio/draft/${S.id}`);
       S.dirty = new Set();
       refreshStrip();
-    } catch (e) { toast(`author chat failed: ${e.message}`, true); }
+      speak(finalReply);
+    } catch (e) {
+      if (e.name !== 'AbortError') toast(`author chat failed: ${e.message}`, true);
+      else toast('stopped — tool work already done stays done');
+    }
+    aborter = null;
     chat.busy = false;
+    live.innerHTML = '';
+    send.style.display = '';
+    stop.style.display = 'none';
     renderThread();
-  };
-  inputTa.addEventListener('keydown', (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') send.onclick();
+  }
+  send.onclick = sendTurn;
+  stop.onclick = () => aborter?.abort();
+  ta.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendTurn(); }
   });
+  ta.focus();
 }
 
 /* ---------------------------------------------------------------- signals */
