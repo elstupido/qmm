@@ -113,7 +113,7 @@ function renderLintInto(host) {
 }
 
 /* ----------------------------------------------------------------- router */
-const routes = { dash: renderDash, story: renderStory, beats: renderBeats, lore: renderLore, test: renderStub, play: renderStub, publish: renderStub };
+const routes = { dash: renderDash, story: renderStory, beats: renderBeats, lore: renderLore, test: renderTest, play: renderPlay, publish: renderStub };
 
 function nav() {
   const h = location.hash || '#/';
@@ -457,6 +457,157 @@ function updatesEditor(tpl, family) {
   };
   render();
   return host;
+}
+
+/* ------------------------------------------------------------- test bench */
+function renderTest() {
+  const pack = S.draft.pack;
+  main.innerHTML = '';
+  main.append(el('h1', '', 'Test bench'), el('p', 'sub', 'dry-runs against the DRAFT — the prompt inspector shows exactly what the model gets'));
+
+  const g = el('div', 'grid3');
+  const beatSel = selectInput(pack.families.map(f => f.from), pack.families[S.beat]?.from ?? pack.families[0].from, () => {});
+  const intentSel = selectInput(Object.keys(pack.meta.intents), S.intent || Object.keys(pack.meta.intents)[0], () => {});
+  const msgIn = Object.assign(input('go check the vending machine'), { placeholder: 'player message' });
+  g.append(labeled('beat (family from)', beatSel), labeled('intent (for fill)', intentSel), labeled('player message', msgIn));
+  main.append(g);
+
+  main.append(el('label', '', 'state JSON (merged over a fresh state; turn drives lore delay/cooldown)'));
+  const stateTa = el('textarea');
+  stateTa.style.minHeight = '70px';
+  stateTa.value = '{"turn": 1, "danger_level": 0, "evidence_found": 0}';
+  main.append(stateTa);
+
+  const row = el('div', 'row');
+  row.style.marginTop = '12px';
+  const btnRoute = el('button', '', 'Route probe');
+  const btnFill = el('button', 'primary', 'Fill preview');
+  const btnChat = el('button', '', 'Chat probe');
+  const btnScan = el('button', '', 'Lore scan (no model)');
+  row.append(btnRoute, btnFill, btnChat, btnScan);
+  main.append(row);
+
+  const out = el('div');
+  out.style.marginTop = '16px';
+  main.append(out);
+
+  const readState = () => { try { return JSON.parse(stateTa.value || '{}'); } catch { toast('state JSON does not parse', true); return null; } };
+  const busy = (b) => [btnRoute, btnFill, btnChat, btnScan].forEach(x => x.disabled = b);
+
+  async function run(kind) {
+    const state = readState();
+    if (!state) return;
+    const body = {
+      module_id: S.id, family_from: beatSel.value, intent: intentSel.value,
+      message: msgIn.value, state,
+    };
+    busy(true);
+    out.innerHTML = '';
+    out.append(el('p', 'hint', kind === 'lore-scan' ? 'scanning…' : 'generating on the live model…'));
+    try {
+      const r = await api('POST', `api/studio/test/${kind}`, body);
+      out.innerHTML = '';
+      if (kind === 'route') {
+        out.append(el('h2', '', `→ ${r.action} · ${r.intent} (${r.ms}ms${r.fallback ? ' · FALLBACK' : ''})`));
+      } else if (kind !== 'lore-scan') {
+        out.append(el('h2', '', `${r.bubbles.length} bubble(s) · ${r.ms}ms · rails applied: ${r.rails_applied}${r.fallback ? ' · FALLBACK' : ''}`));
+        for (const b of r.bubbles) {
+          const d = el('div', 'card', b);
+          d.style.margin = '6px 0';
+          d.style.maxWidth = '420px';
+          out.append(d);
+        }
+      }
+      if (r.lore) {
+        out.append(el('h2', '', `lore fired: ${r.lore.fired.join(', ') || 'none'}`));
+        out.append(loreTraceTable(r.lore.trace || r.trace || []));
+      }
+      if (kind === 'lore-scan' && r.trace) {
+        out.append(el('h2', '', `lore fired: ${r.fired.join(', ') || 'none'} (budget ${r.budget_chars} chars)`));
+        out.append(loreTraceTable(r.trace));
+      }
+      if (r.prompt) {
+        const det = el('details');
+        det.append(el('summary', '', 'prompt inspector — exactly what the model received'));
+        const sys = el('pre', 'mono'); sys.textContent = 'SYSTEM\n──────\n' + r.prompt.sys;
+        const usr = el('pre', 'mono'); usr.textContent = 'USER\n────\n' + r.prompt.usr;
+        for (const p of [sys, usr]) { p.style.whiteSpace = 'pre-wrap'; p.style.background = 'var(--panel)'; p.style.padding = '10px'; p.style.borderRadius = '8px'; p.style.marginTop = '8px'; }
+        det.append(sys, usr);
+        out.append(det);
+      }
+      if (r.thinking) {
+        const det = el('details');
+        det.append(el('summary', '', 'model thinking'));
+        const t = el('pre', 'mono'); t.textContent = r.thinking; t.style.whiteSpace = 'pre-wrap'; t.style.color = 'var(--muted)';
+        det.append(t);
+        out.append(det);
+      }
+    } catch (e) { out.innerHTML = ''; out.append(el('p', 'boot', `failed: ${e.message}`)); }
+    busy(false);
+  }
+
+  btnRoute.onclick = () => run('route');
+  btnFill.onclick = () => run('fill');
+  btnChat.onclick = () => run('chat');
+  btnScan.onclick = () => run('lore-scan');
+}
+
+function loreTraceTable(trace) {
+  const tbl = el('table', 'updates');
+  tbl.innerHTML = '<thead><tr><th>entry</th><th>outcome</th><th>detail</th></tr></thead>';
+  const tb = el('tbody');
+  for (const t of trace) {
+    const tr = el('tr');
+    tr.append(el('td', 'mono', t.id), el('td', '', t.outcome),
+      el('td', 'raw', Object.entries(t).filter(([k]) => !['id', 'outcome'].includes(k)).map(([k, v]) => `${k}=${v}`).join(' ')));
+    tb.appendChild(tr);
+  }
+  tbl.append(tb);
+  return tbl;
+}
+
+/* --------------------------------------------------------------- playtest */
+function renderPlay() {
+  main.innerHTML = '';
+  main.append(el('h1', '', 'Playtest'), el('p', 'sub', 'a real run of the DRAFT on the full engine — scratch sessions, never player data'));
+
+  const wrap = el('div');
+  wrap.style.display = 'grid';
+  wrap.style.gridTemplateColumns = 'minmax(320px, 420px) 1fr';
+  wrap.style.gap = '18px';
+
+  const frame = el('iframe');
+  frame.src = `playtest.html?module=${encodeURIComponent(S.id)}`;
+  frame.style.width = '100%';
+  frame.style.height = '720px';
+  frame.style.border = '1px solid var(--line)';
+  frame.style.borderRadius = '12px';
+  frame.style.background = 'var(--bg)';
+  wrap.append(frame);
+
+  const side = el('div');
+  side.append(el('h2', '', 'State inspector'));
+  const statePre = el('pre', 'mono', '(state appears after the first turn)');
+  statePre.style.whiteSpace = 'pre-wrap';
+  statePre.style.background = 'var(--panel)';
+  statePre.style.padding = '10px';
+  statePre.style.borderRadius = '8px';
+  side.append(statePre);
+  side.append(el('h2', '', 'Turn log'));
+  const log = el('div', 'lint');
+  side.append(log);
+  wrap.append(side);
+  main.append(wrap);
+
+  window.onmessage = (e) => {
+    if (!e.data?.qmmPlaytest) return;
+    if (e.data.state) statePre.textContent = JSON.stringify(e.data.state, null, 2);
+    if (e.data.kind === 'turn' && e.data.meta) {
+      const it = el('div', 'item', `${e.data.meta.mode} · ${e.data.meta.intent ?? ''} ${e.data.meta.template_id ?? ''} · lore: ${(e.data.meta.lore_fired || []).join(',') || '—'}`);
+      log.prepend(it);
+    }
+    if (e.data.ending) log.prepend(el('div', 'item warn', `ENDING: ${e.data.ending.route} (${e.data.ending.type})`));
+  };
 }
 
 /* ------------------------------------------------------- stubs (later phases) */

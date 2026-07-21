@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>playtest</title>
+<link rel="stylesheet" href="player-assets/style.css">
+<style>
+  /* studio-only chrome on top of the player stylesheet */
+  .room-caption { display: none; }
+  .studio-tools { position: absolute; top: 6px; right: 8px; z-index: 4; display: flex; gap: 6px; }
+  .studio-tools button {
+    background: rgba(20,20,28,.85); color: #aaa; border: 1px solid #333; border-radius: 6px;
+    font-size: 11px; padding: 3px 8px; cursor: pointer;
+  }
+</style>
+</head>
+<body>
+<div class="room">
+  <div class="phone" id="phone">
+    <div class="notch"></div>
+    <div class="studio-tools">
+      <button id="pt-nudge" title="fire a silence nudge now">nudge</button>
+      <button id="pt-restart" title="fresh playtest run">restart</button>
+    </div>
+    <div class="statusbar">
+      <span class="sb-left" id="sb-time">--:--</span>
+      <span class="sb-right">
+        <span class="sb-carrier">studio</span>
+      </span>
+    </div>
+    <header class="contact">
+      <div class="avatar">由</div>
+      <div class="who">
+        <div class="name">yuki <span class="flower">🌸</span></div>
+        <div class="loc" id="contact-status">playtest — draft module</div>
+      </div>
+    </header>
+    <main class="chat" id="chat" aria-live="polite"></main>
+    <form class="composer" id="composer" autocomplete="off">
+      <input id="input" type="text" placeholder="text yuki…" maxlength="500" autocomplete="off" spellcheck="false">
+      <button id="send" type="submit" aria-label="send">↑</button>
+    </form>
+    <div class="homebar"></div>
+  </div>
+</div>
+<script src="phone.js"></script>
+</body>
+</html>

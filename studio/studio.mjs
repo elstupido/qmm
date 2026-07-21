@@ -15,9 +15,16 @@ import { createServer } from 'node:http';
 import { readFileSync, existsSync, statSync, appendFileSync, mkdirSync } from 'node:fs';
 import { join, normalize, extname, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { NUM_CTX, OLLAMA, MODEL } from '../server/engine.mjs';
+import {
+  NUM_CTX, OLLAMA, MODEL, buildModule,
+  buildRoutePrompt, buildGeneratePrompt, buildChatPrompt,
+  routeMessage, generateBubbles, chatAsYuki,
+  freshState, sanitizeTail, runTurn, runNudge,
+} from '../server/engine.mjs';
+import { scanLore, resolveMacros, applyRails } from '../server/lore.mjs';
 import { validateModule } from '../server/validate.mjs';
 import { DraftStore } from './lib/draft-store.mjs';
+import * as scratchSessions from './lib/scratch-sessions.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(here, '..');
@@ -97,6 +104,41 @@ function loadForValidation(id, target) {
   const docs = target === 'live' ? store.loadLive(id) : store.loadDraft(id);
   if (!docs) return null;
   return { manifest: docs.manifest, pack: DraftStore.mergedPack(docs) };
+}
+
+/**
+ * The engine-ready module the studio tests against: the DRAFT when one exists, else live.
+ * Built per request — the files just changed under the author's hands, staleness is the enemy.
+ */
+function draftModule(id) {
+  const docs = store.loadDraft(id) || store.loadLive(id);
+  if (!docs || !docs.manifest || !docs.pack) return null;
+  try { return buildModule(docs.manifest, DraftStore.mergedPack(docs)); } catch { return null; }
+}
+
+// The engine's view of the studio: draft-preferred registry + scratch sessions + the studio log.
+const studioDeps = {
+  getModule: (id) => id ? draftModule(id) : null,
+  get defaultModule() { return store.list()[0]?.id || null; },
+  sessions: scratchSessions,
+  qlog: slog,
+};
+
+/** Shared setup for the dry-run test endpoints. Clones state so a probe never mutates the caller's. */
+function benchContext(body) {
+  const id = String(body.module_id || '') || studioDeps.defaultModule;
+  const mod = draftModule(id);
+  if (!mod) return { error: { code: 404, body: { error: 'unknown_module', detail: id } } };
+  const state = { ...freshState(mod), ...(body.state && typeof body.state === 'object' ? JSON.parse(JSON.stringify(body.state)) : {}) };
+  const familyFrom = String(body.family_from || state.current_state || mod.firstFrom);
+  const family = mod.familyByFrom[familyFrom];
+  if (!family) return { error: { code: 404, body: { error: 'unknown_family', detail: familyFrom } } };
+  state.current_state = familyFrom;
+  const message = String(body.message ?? '').slice(0, 1000);
+  const given = Array.isArray(body.tail) ? body.tail : [];
+  const transcript = [...given.map(m => ({ who: m?.who === 'user' ? 'user' : 'yuki', text: String(m?.text ?? '').slice(0, 600) })).filter(m => m.text)];
+  if (message && transcript[transcript.length - 1]?.text !== message) transcript.push({ who: 'user', text: message });
+  return { mod, family, state, message, transcript, tail: sanitizeTail(transcript) };
 }
 
 async function health() {
@@ -202,6 +244,101 @@ const server = createServer(async (req, res) => {
         });
         return sendJson(res, 200, result);
       } catch (e) { return storeError(res, e); }
+    }
+
+    // -------------------------------------------------------- test bench ----
+    // Dry runs against the DRAFT (fallback live). Model calls hit the same OLLAMA the player
+    // uses; nothing here reads or writes player sessions. Each response carries the exact
+    // prompt strings sent to the model — the inspector view.
+    if (req.method === 'POST' && path === '/api/studio/test/route') {
+      const body = await readBody(req);
+      const c = benchContext(body);
+      if (c.error) return sendJson(res, c.error.code, c.error.body);
+      const exchanges = Number(body.exchanges) || 0;
+      const latencyS = Number(body.latency_s) || 0;
+      const prompt = buildRoutePrompt(c.mod, c.family, c.message, c.tail, exchanges, latencyS);
+      const r = await routeMessage(c.mod, c.message, c.family, c.tail, exchanges, latencyS, slog);
+      return sendJson(res, 200, { action: r.action, intent: r.intent, ms: r.ms, fallback: !!r.fallback, thinking: r.thinking || '', prompt: { sys: prompt.sys, usr: prompt.usr } });
+    }
+    if (req.method === 'POST' && path === '/api/studio/test/fill') {
+      const body = await readBody(req);
+      const c = benchContext(body);
+      if (c.error) return sendJson(res, c.error.code, c.error.body);
+      const intent = String(body.intent || 'OTHER');
+      const tpl = c.family.templates[intent];
+      if (!tpl) return sendJson(res, 404, { error: 'unknown_intent', detail: intent });
+      const trace = [];
+      const lore = scanLore(c.mod.pack, c.transcript, c.state, NUM_CTX, trace);
+      const prompt = buildGeneratePrompt(c.mod, c.family, tpl, c.state, c.message, c.tail, lore.block);
+      const gen = await generateBubbles(c.mod, c.family, tpl, c.state, c.message, c.tail, lore.block, slog);
+      const railed = applyRails(c.mod.pack, gen.bubbles);
+      return sendJson(res, 200, {
+        bubbles: railed.bubbles, rails_applied: railed.applied, fallback: !!gen.fallback, ms: gen.ms,
+        thinking: gen.thinking || '', lore: { fired: lore.fired, block: lore.block, trace },
+        prompt: { sys: prompt.sys, usr: prompt.usr },
+      });
+    }
+    if (req.method === 'POST' && path === '/api/studio/test/chat') {
+      const body = await readBody(req);
+      const c = benchContext(body);
+      if (c.error) return sendJson(res, c.error.code, c.error.body);
+      const nudgeS = body.nudge_s ? Number(body.nudge_s) : null;
+      const trace = [];
+      const lore = scanLore(c.mod.pack, c.transcript, c.state, NUM_CTX, trace);
+      const prompt = buildChatPrompt(c.mod, c.family, c.state, c.message, c.tail, nudgeS, lore.block);
+      const chat = await chatAsYuki(c.mod, c.family, c.state, c.message, c.tail, nudgeS, lore.block, slog);
+      const railed = applyRails(c.mod.pack, chat.bubbles);
+      return sendJson(res, 200, {
+        bubbles: railed.bubbles, rails_applied: railed.applied, fallback: !!chat.fallback, ms: chat.ms,
+        thinking: chat.thinking || '', lore: { fired: lore.fired, block: lore.block, trace },
+        prompt: { sys: prompt.sys, usr: prompt.usr },
+      });
+    }
+    if (req.method === 'POST' && path === '/api/studio/test/lore-scan') {
+      const body = await readBody(req);
+      const c = benchContext(body);
+      if (c.error) return sendJson(res, c.error.code, c.error.body);
+      const trace = [];
+      const lore = scanLore(c.mod.pack, c.transcript, c.state, NUM_CTX, trace);
+      return sendJson(res, 200, { fired: lore.fired, block: lore.block, budget_chars: lore.budget_chars, trace, state_after: { turn: c.state.turn, lore_fx: c.state.lore_fx } });
+    }
+
+    // ---------------------------------------------------------- playtest ----
+    // Full engine loop on DRAFT modules with scratch sessions. Never the player's sessions/.
+    if (req.method === 'POST' && path === '/api/studio/play/new') {
+      if (!requireToken(req, res)) return;
+      const body = await readBody(req);
+      const id = String(body.module_id || '') || studioDeps.defaultModule;
+      const mod = draftModule(id);
+      if (!mod) return sendJson(res, 404, { error: 'unknown_module', detail: id });
+      const playId = `studio-${Date.now()}`;
+      const st = freshState(mod);
+      const cold = mod.meta.cold_open.map(t => resolveMacros(t, st.macro_seed));
+      const sess = scratchSessions.newSession(playId, id, st, cold);
+      slog({ kind: 'play_new', play_id: playId, module_id: id });
+      return sendJson(res, 200, { play_id: playId, module_id: id, yuki_messages: cold, state: sess.state, seq: sess.seq });
+    }
+    if (req.method === 'POST' && path === '/api/studio/play/turn') {
+      if (!requireToken(req, res)) return;
+      const body = await readBody(req);
+      const out = await runTurn(studioDeps, { user_id: body.play_id, module_id: body.module_id, user_message: body.message, channel: 'studio' }, { sid: 'studio', channel: 'studio', ip: 'studio', ua: 'studio' });
+      return sendJson(res, out.error ? 400 : 200, out);
+    }
+    if (req.method === 'POST' && path === '/api/studio/play/nudge') {
+      if (!requireToken(req, res)) return;
+      const body = await readBody(req);
+      const out = await runNudge(studioDeps, { user_id: body.play_id, module_id: body.module_id, quiet_s: body.quiet_s, channel: 'studio' }, { sid: 'studio', channel: 'studio', ip: 'studio', ua: 'studio' });
+      return sendJson(res, out.error ? 400 : 200, out);
+    }
+    if (req.method === 'GET' && path === '/api/studio/play') {
+      return sendJson(res, 200, { runs: scratchSessions.listSessions() });
+    }
+    if ((m = /^\/api\/studio\/play\/([^/]+)$/.exec(path)) && req.method === 'GET') {
+      const playId = decodeURIComponent(m[1]);
+      const moduleId = url.searchParams.get('module_id') || studioDeps.defaultModule;
+      const sess = scratchSessions.loadSession(playId, moduleId);
+      if (!sess) return sendJson(res, 404, { error: 'not_found' });
+      return sendJson(res, 200, sess);
     }
 
     // ------------------------------------------------------------ static ----

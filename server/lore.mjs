@@ -105,10 +105,13 @@ function keyMatches(key, windowText, windowTextLower, caseSensitive) {
  * @param {Array}  transcript  [{who,text}] full transcript INCLUDING the newest player message
  * @param {object} state       session state (state.turn, state.lore_fx read/written)
  * @param {number} ctxTokens   the ENGINE's context window in tokens (model-derived, never invented)
+ * @param {Array}  [trace]     optional: per-entry gate outcomes are pushed here (studio "explain";
+ *                             pure-additive — passing nothing changes nothing)
  * @returns {{block: string, fired: string[], budget_chars: number}}
  */
-export function scanLore(pack, transcript, state, ctxTokens) {
+export function scanLore(pack, transcript, state, ctxTokens, trace = null) {
   const cfg = loreConfig(pack);
+  const note = (id, outcome, extra) => { if (trace) trace.push({ id, outcome, ...(extra || {}) }); };
   if (!cfg.entries.length) return { block: '', fired: [], budget_chars: 0 };
 
   const fx = state.lore_fx || (state.lore_fx = freshLoreFx());
@@ -125,20 +128,22 @@ export function scanLore(pack, transcript, state, ctxTokens) {
     if (sticky) viaSticky.add(e.id);
 
     if (!sticky) {
-      if ((Number(e.delay) || 0) > turn) continue;                     // not yet in play
-      if ((fx.cooldownUntil[e.id] || 0) >= turn) continue;             // refire blocked
-      if (e.group && fx.groupCanon[e.group] && fx.groupCanon[e.group] !== e.id) continue; // lost the equivoque
+      if ((Number(e.delay) || 0) > turn) { note(e.id, 'blocked:delay', { until_turn: Number(e.delay) }); continue; }
+      if ((fx.cooldownUntil[e.id] || 0) >= turn) { note(e.id, 'blocked:cooldown', { until_turn: fx.cooldownUntil[e.id] }); continue; }
+      if (e.group && fx.groupCanon[e.group] && fx.groupCanon[e.group] !== e.id) { note(e.id, 'blocked:group', { canon: fx.groupCanon[e.group] }); continue; } // lost the equivoque
 
       if (!e.constant) {
         const depth = Number(e.scan_depth) > 0 ? Number(e.scan_depth) : cfg.scan_depth;
         const windowText = transcript.slice(-depth).map(m => m.text).join('\n');
         const windowTextLower = windowText.toLowerCase();
         const keys = Array.isArray(e.keys) ? e.keys : [];
-        if (!keys.some(k => keyMatches(String(k), windowText, windowTextLower, !!e.case_sensitive))) continue;
+        const matched = keys.find(k => keyMatches(String(k), windowText, windowTextLower, !!e.case_sensitive));
+        if (matched === undefined) { note(e.id, 'blocked:keys'); continue; }
+        if (trace) note(e.id, 'matched', { key: String(matched) });
       }
 
       const prob = e.probability === undefined ? 100 : Number(e.probability);
-      if (prob < 100 && Math.random() * 100 >= prob) continue;
+      if (prob < 100 && Math.random() * 100 >= prob) { note(e.id, 'blocked:probability', { probability: prob }); continue; }
     }
 
     active.push(e);
@@ -152,7 +157,8 @@ export function scanLore(pack, transcript, state, ctxTokens) {
   let spent = 0;
   for (const e of active) {
     const content = String(e.content);
-    if (spent + content.length > budgetChars && fired.length > 0) continue; // budget: skip, don't truncate
+    if (spent + content.length > budgetChars && fired.length > 0) { note(e.id, 'blocked:budget', { budget_chars: budgetChars }); continue; } // budget: skip, don't truncate
+    note(e.id, 'fired', { sticky: viaSticky.has(e.id) || undefined });
     spent += content.length;
     fired.push(e.id);
     lines.push(content);
