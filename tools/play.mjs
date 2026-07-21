@@ -23,30 +23,31 @@ const run = process.argv[2]
   ? process.argv[2].split('|').map(m => [m, '?'])
   : DEFAULT_RUN;
 
+// Server-side sessions: each run is a fresh (user_id, module) session; the server owns the
+// transcript, so the client no longer threads state/tail.
+const USER = process.env.QMM_USER || `play-${Date.now()}`;
 const j = (r) => r.json();
 let first;
 try {
-  first = await fetch(`${BASE}/api/new`).then(j);
+  first = await fetch(`${BASE}/api/new?user_id=${encodeURIComponent(USER)}`).then(j);
 } catch {
   console.error(`Can't reach ${BASE}. Start the server first (node server/server.mjs, or start-qmm.ps1 on Windows), or set QMM to point at a running one.`);
   process.exit(1);
 }
+if (first.error) { console.error(`!! /api/new error: ${first.error} ${first.detail || ''}`); process.exit(1); }
 let { state, yuki_messages } = first;
-let tail = yuki_messages.map(t => ({ who: 'yuki', text: t }));
-console.log(`COLD OPEN (${yuki_messages.length} bubbles) -> ${state.current_state}`);
+console.log(`COLD OPEN (${yuki_messages.length} bubbles) -> ${state.current_state}  [user ${USER}, module ${first.module_id}]`);
 
 let fails = 0, chats = 0, advances = 0;
 for (const [msg, expect] of run) {
   const t0 = Date.now();
   const res = await fetch(`${BASE}/api/turn`, {
     method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ state, user_message: msg, reply_latency_s: 4, session_id: 'play-test', transcript_tail: tail.slice(-24) }),
+    body: JSON.stringify({ user_id: USER, user_message: msg, reply_latency_s: 4, channel: 'play' }),
   }).then(j);
   if (res.error === 'story_over') { console.log(`\n== "${msg}"\n   (story already over)`); break; }
   if (res.error) { console.log(`!! ERROR: ${res.error} ${res.detail || ''}`); fails++; break; }
   state = res.state;
-  tail.push({ who: 'user', text: msg });
-  for (const b of res.yuki_messages) tail.push({ who: 'yuki', text: b });
 
   const m = res.meta;
   if (m.mode === 'chat') chats++; else advances++;

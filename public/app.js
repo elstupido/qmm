@@ -1,9 +1,14 @@
-/* QMM — client logic. State lives here (round-tripped through the stateless server). */
+/* QMM — web client. State is SERVER-OWNED now (server/sessions.mjs): this channel identifies with a
+   persistent user_id, pulls the shared session on load, and advances it via the API. The same session
+   is reachable from the app and Telegram, so a player moves between channels and keeps one story. */
 'use strict';
 
 const $ = (id) => document.getElementById(id);
 const chat = $('chat'), input = $('input'), sendBtn = $('send'), composer = $('composer');
-const LS_KEY = 'qmm_v1';
+
+const USER_KEY = 'qmm_user';        // persistent per-browser identity (stub for real login)
+const PREFS_KEY = 'qmm_prefs';      // { module_id, soundOn, debug }
+const WAIVER_KEY = 'qmm_waiver_v1'; // consent record (per story)
 
 const SCENES = {
   outside: 'outside', chanko_stall: 'east side — chanko stall', service_entrance: 'service entrance',
@@ -16,23 +21,44 @@ const SCENES = {
   hidden_practice_hall_threshold: 'hidden hall — doorway',
 };
 
-let S = null;          // session: {transcript, state, snapshots, soundOn, debug, coldOpenDone}
+let S = null;          // in-memory view: {user_id, module_id, state, transcript, seq, soundOn, debug, clockOffset}
 let busy = false;
 let audioCtx = null;
 let lastYukiAt = 0;    // when Yuki's last bubble landed (reply-latency + nudge timing)
-let nudgeTimer = null; // silence timer: Yuki double-texts if the player goes quiet
+let nudgeTimer = null; // silence timer
+
+/* ------------------------------------------------------- identity / prefs -- */
+const newId = () => (crypto.randomUUID ? crypto.randomUUID() : `u-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+function loadPrefs() { try { return JSON.parse(localStorage.getItem(PREFS_KEY)) || {}; } catch { return {}; } }
+function savePrefs() { try { localStorage.setItem(PREFS_KEY, JSON.stringify({ module_id: S.module_id, soundOn: S.soundOn, debug: S.debug })); } catch { } }
+
+function ensureUser() {
+  let u = null;
+  try { u = localStorage.getItem(USER_KEY); } catch { }
+  if (!u) { u = newId(); try { localStorage.setItem(USER_KEY, u); } catch { } }
+  const prefs = loadPrefs();
+  S = S || {};
+  S.user_id = u;
+  S.module_id = S.module_id || prefs.module_id || null;
+  S.soundOn = prefs.soundOn ?? true;
+  S.debug = prefs.debug ?? new URLSearchParams(location.search).has('debug');
+  S.transcript = S.transcript || [];
+  S.state = S.state || {};
+  S.seq = S.seq || 0;
+  S.clockOffset = S.clockOffset || 0;
+}
+async function ensureModule() {
+  if (S.module_id) return;
+  try { const cat = await fetch('api/modules').then(r => r.json()); S.module_id = cat.default || cat.modules?.[0]?.id; } catch { }
+  if (!S.module_id) S.module_id = 'yuki-kokugikan-ep1';
+  savePrefs();
+}
+const sessionUrl = () => `api/session?user_id=${encodeURIComponent(S.user_id)}&module_id=${encodeURIComponent(S.module_id)}`;
 
 /* ------------------------------------------------------------- utilities -- */
-function save() { try { localStorage.setItem(LS_KEY, JSON.stringify(S)); } catch { } }
-function load() {
-  try {
-    const s = JSON.parse(localStorage.getItem(LS_KEY));
-    if (s && Array.isArray(s.transcript) && s.state && s.state.current_state) return s;
-  } catch { }
-  return null;
-}
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 const beat = () => S?.state?.beat ?? 0;
+const isEnded = () => { const cs = S?.state?.current_state || ''; return /_Ending$/.test(cs) || !!S?.state?.ending_type; };
 
 function clockStr() {
   const mins = 23 * 60 + 47 + (S.clockOffset || 0);
@@ -67,8 +93,7 @@ function updateChrome() {
   const barsOn = beat() <= 1 ? 4 : beat() === 2 ? 3 : beat() === 3 ? 2 : 1;
   [...$('sb-signal').children].forEach((el, i) => el.classList.toggle('off', i >= barsOn));
   const anchor = S.state.scene_anchor;
-  const done = S.state.current_state === 'S06_Ending';
-  $('contact-status').textContent = done ? '…' :
+  $('contact-status').textContent = isEnded() ? '…' :
     'Kokugikan — ' + (SCENES[anchor] || (anchor ? anchor.replace(/_/g, ' ') : 'outside'));
   $('menu-sound').textContent = S.soundOn ? 'on' : 'off';
   $('menu-debug').textContent = S.debug ? 'on' : 'off';
@@ -93,7 +118,7 @@ function scrollDown() { chat.scrollTop = chat.scrollHeight; }
 function chipLabel(meta) {
   if (meta.mode === 'chat') return `chat ${meta.exchanges_in_beat ?? '?'}/4 · ${meta.intent}`;
   if (meta.mode === 'nudge') return 'nudge';
-  return `${meta.template_id} · ${meta.intent}${meta.forced ? ' · forced' : ''}`;
+  return `${meta.template_id} · ${meta.intent}${meta.forced ? ' · forced' : ''}${meta.lore_fired?.length ? ' · lore:' + meta.lore_fired.join(',') : ''}`;
 }
 
 function addBubble(who, text, opts = {}) {
@@ -141,36 +166,47 @@ async function revealYuki(bubbles, meta) {
     S.transcript.push({ who: 'yuki', text: bubbles[i], meta: i === 0 ? meta : undefined });
     addBubble('yuki', bubbles[i], { meta: i === 0 ? meta : null });
     popIn();
-    save();
   }
   setTypingHeader(false);
   lastYukiAt = Date.now();
+}
+
+/* --------------------------------------------------- cross-channel sync ---- */
+// On focus, catch up if another channel (app / Telegram) advanced the shared session.
+async function syncFromServer() {
+  if (busy || !S?.user_id || !S?.module_id) return;
+  try {
+    const p = await fetch(sessionUrl()).then(r => r.json());
+    if (p?.exists && (p.seq || 0) > (S.seq || 0)) {
+      S.state = p.state; S.transcript = p.transcript || []; S.seq = p.seq || 0;
+      hideTyping(); setTypingHeader(false);
+      renderAll();
+      if (isEnded()) { setBusy(true); input.disabled = true; }
+    }
+  } catch { }
 }
 
 /* ---------------------------------------------------------------- nudges --- */
 function clearNudge() { if (nudgeTimer) { clearTimeout(nudgeTimer); nudgeTimer = null; } }
 function armNudge() {
   clearNudge();
-  if (!S || S.state.current_state === 'S06_Ending') return;
+  if (!S || isEnded()) return;
   nudgeTimer = setTimeout(fireNudge, 25000 + Math.random() * 20000);
 }
 async function fireNudge() {
   nudgeTimer = null;
-  if (busy || !S || S.state.current_state === 'S06_Ending') return;
+  if (busy || !S || isEnded()) return;
   if (input.value.trim()) { nudgeTimer = setTimeout(fireNudge, 20000); return; } // they're typing
   const quiet = Math.round((Date.now() - (lastYukiAt || Date.now())) / 1000);
   try {
     const r = await fetch('api/nudge', {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        state: S.state, quiet_s: quiet, session_id: S.sid,
-        transcript_tail: S.transcript.slice(-24).map(m => ({ who: m.who, text: m.text })),
-      }),
+      body: JSON.stringify({ user_id: S.user_id, module_id: S.module_id, quiet_s: quiet, channel: 'web' }),
     });
     const data = await r.json();
     if (data?.yuki_messages && !busy && !input.value.trim()) {
+      if (data.seq) S.seq = data.seq;
       await revealYuki(data.yuki_messages, data.meta);
-      save();
     }
   } catch { }
   // one nudge per lull — re-arms on the next player message
@@ -184,23 +220,19 @@ function setBusy(on) {
   if (!on) input.focus();
 }
 
-const newSid = () => (crypto.randomUUID ? crypto.randomUUID() : `s-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-
 async function newStory() {
   setBusy(true);
-  const sid = newSid();
-  const r = await fetch(`api/new?sid=${sid}`).then(r => r.json()).catch(() => null);
-  if (!r) { addBubble('system', '⚠ can\'t reach the story server — tap to retry', { onclick: newStory }); setBusy(false); return; }
-  S = {
-    sid, transcript: [], state: r.state, snapshots: [], soundOn: S?.soundOn ?? true,
-    debug: S?.debug ?? new URLSearchParams(location.search).has('debug'),
-    clockOffset: 0, coldOpenDone: false,
-  };
   $('ending').classList.add('hidden');
+  const r = await fetch(`api/new?user_id=${encodeURIComponent(S.user_id)}&module_id=${encodeURIComponent(S.module_id)}`)
+    .then(r => r.json()).catch(() => null);
+  if (!r || r.error) {
+    chat.innerHTML = '';
+    addBubble('system', '⚠ can\'t reach the story server — tap to retry', { onclick: newStory });
+    setBusy(false); return;
+  }
+  S.state = r.state; S.seq = r.seq ?? 0; S.transcript = []; S.clockOffset = 0;
   renderAll();
   await revealYuki(r.yuki_messages, null);
-  S.coldOpenDone = true;
-  save();
   setBusy(false);
   armNudge();
 }
@@ -209,67 +241,54 @@ async function performTurn(text) {
   setBusy(true);
   const latency = lastYukiAt ? Math.round((Date.now() - lastYukiAt) / 1000) : 0;
   await sleep(700);
-  const receipt = el('div', 'receipt', `Read ${clockStr()}`);
-  chat.appendChild(receipt); scrollDown();
+  chat.appendChild(el('div', 'receipt', `Read ${clockStr()}`)); scrollDown();
   await sleep(650);
   showTyping();
-  let res, data;
+  let data;
   try {
-    res = await fetch('api/turn', {
+    const res = await fetch('api/turn', {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        state: S.state, user_message: text, reply_latency_s: latency, session_id: S.sid,
-        transcript_tail: S.transcript.slice(-24).map(m => ({ who: m.who, text: m.text })),
-      }),
+      body: JSON.stringify({ user_id: S.user_id, module_id: S.module_id, user_message: text, reply_latency_s: latency, channel: 'web' }),
     });
     data = await res.json();
   } catch { data = null; }
-  if (data && data.mode === 'stopped') {
-    hideTyping(); setTypingHeader(false);
-    localStorage.removeItem(LS_KEY);
-    localStorage.removeItem(WAIVER_KEY);
-    $('stopped').classList.remove('hidden');
-    return;
-  }
+  if (data && data.mode === 'stopped') { endStopped(); return; }
   if (!data || data.error) {
     hideTyping(); setTypingHeader(false);
-    addBubble('system', '⚠ message didn\'t send — tap to retry', { onclick: () => { performTurn(text); } });
+    addBubble('system', '⚠ message didn\'t send — tap to retry', { onclick: () => performTurn(text) });
     setBusy(false);
     return;
   }
-  S.state = data.state;
+  S.state = data.state; if (data.seq) S.seq = data.seq;
   S.clockOffset = (S.clockOffset || 0) + (data.mode === 'chat' ? 1 + Math.floor(Math.random() * 2) : 4 + Math.floor(Math.random() * 5));
   await revealYuki(data.yuki_messages, data.meta);
   updateChrome();
-  save();
-  if (data.ending) {
-    await sleep(1800);
-    showEnding(data.ending);
-  } else {
-    setBusy(false);
-    armNudge();
-  }
+  if (data.ending) { await sleep(1800); showEnding(data.ending); }
+  else { setBusy(false); armNudge(); }
 }
 
 /* -------------------------------------------------------------- the word -- */
 const isTheWord = (t) => /^stop[\s.!?…]*$/i.test(t.trim());
 
-async function theWord(word) {
+function endStopped() {
   clearNudge();
-  setBusy(true);
-  input.value = '';
+  hideTyping(); setTypingHeader(false);
+  try { localStorage.removeItem(WAIVER_KEY); } catch { } // consent is per story; re-entry re-signs
+  $('stopped').classList.remove('hidden');
+}
+
+async function theWord(word) {
+  clearNudge(); setBusy(true); input.value = '';
   S.transcript.push({ who: 'user', text: word });
   addBubble('user', word);
   try {
     await fetch('api/turn', {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ state: S.state, user_message: word, session_id: S.sid, transcript_tail: [] }),
+      body: JSON.stringify({ user_id: S.user_id, module_id: S.module_id, user_message: word, channel: 'web' }),
     });
   } catch { }
   await sleep(1600);
-  localStorage.removeItem(LS_KEY);
-  localStorage.removeItem(WAIVER_KEY);
-  $('stopped').classList.remove('hidden');
+  endStopped();
 }
 
 function sendMessage(text) {
@@ -277,13 +296,8 @@ function sendMessage(text) {
   if (isTheWord(text)) { theWord(text.trim()); return; }
   clearNudge();
   swishOut();
-  S.snapshots.push({
-    state: JSON.parse(JSON.stringify(S.state)),
-    tlen: S.transcript.length, clockOffset: S.clockOffset || 0,
-  });
   S.transcript.push({ who: 'user', text });
   addBubble('user', text);
-  save();
   input.value = '';
   performTurn(text);
 }
@@ -307,20 +321,6 @@ function showEnding(e) {
   input.disabled = true;
 }
 
-function rewind() {
-  const snap = S.snapshots.pop();
-  if (!snap) return;
-  S.state = snap.state;
-  S.transcript.length = snap.tlen;
-  S.clockOffset = snap.clockOffset;
-  $('ending').classList.add('hidden');
-  hideTyping(); setTypingHeader(false);
-  renderAll();
-  save();
-  setBusy(false);
-  armNudge();
-}
-
 /* ------------------------------------------------------------------ wiring - */
 composer.addEventListener('submit', (ev) => { ev.preventDefault(); sendMessage(input.value); });
 input.addEventListener('input', () => { sendBtn.disabled = busy || !input.value.trim(); });
@@ -332,18 +332,14 @@ document.addEventListener('click', (ev) => {
 $('menu').addEventListener('click', (ev) => {
   const act = ev.target.closest('button')?.dataset.act;
   $('menu').classList.add('hidden');
-  if (act === 'restart' && confirm('start a new story? this one will be lost.')) {
-    localStorage.removeItem(LS_KEY); localStorage.removeItem(WAIVER_KEY); location.reload();
-  }
-  if (act === 'rewind') rewind();
-  if (act === 'sound') { S.soundOn = !S.soundOn; save(); updateChrome(); }
-  if (act === 'debug') { S.debug = !S.debug; save(); renderAll(); }
+  if (act === 'restart' && confirm('start a new story? this one will be lost.')) newStory();
+  if (act === 'sound') { S.soundOn = !S.soundOn; savePrefs(); updateChrome(); }
+  if (act === 'debug') { S.debug = !S.debug; savePrefs(); renderAll(); }
   if (act === 'state') { $('state-pre').textContent = JSON.stringify(S.state, null, 2); $('state-overlay').classList.remove('hidden'); }
   if (act === 'reload') location.reload();
 });
 
-// Size the phone to the VISUAL viewport so the composer rides above the mobile
-// keyboard and the chat re-pins to the newest bubble when it opens.
+// Size the phone to the VISUAL viewport so the composer rides above the mobile keyboard.
 if (window.visualViewport) {
   const setVvh = () => {
     document.documentElement.style.setProperty('--vvh', `${Math.round(window.visualViewport.height)}px`);
@@ -353,13 +349,11 @@ if (window.visualViewport) {
   setVvh();
 }
 $('state-close').addEventListener('click', () => $('state-overlay').classList.add('hidden'));
-$('ending-restart').addEventListener('click', () => {
-  localStorage.removeItem(LS_KEY); localStorage.removeItem(WAIVER_KEY); location.reload();
-});
-$('ending-rewind').addEventListener('click', rewind);
+$('ending-restart').addEventListener('click', newStory);
+// Catch up to another channel when the tab regains focus.
+document.addEventListener('visibilitychange', () => { if (!document.hidden) syncFromServer(); });
 
 /* ----------------------------------------------------------------- waiver -- */
-const WAIVER_KEY = 'qmm_waiver_v1';
 const CLAUSES = [
   'I am at least 18 years of age, of sound mind, and I am doing this freely. No one is doing this to me. I am doing this to me.',
   'I understand that the Story is fiction. I understand that I will not always believe that. Everything I say to the Story is kept, and is used to build what comes next.',
@@ -414,7 +408,7 @@ function showWaiver() {
     try { localStorage.setItem(WAIVER_KEY, JSON.stringify(record)); } catch { }
     fetch('api/waiver', {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(record),
+      body: JSON.stringify({ user_id: S.user_id, ...record }),
     }).catch(() => { });
     setTimeout(() => {
       $('waiver').classList.add('fading');
@@ -425,24 +419,32 @@ function showWaiver() {
 }
 
 /* ------------------------------------------------------------------- boot -- */
-function proceedBoot() {
-  const saved = load();
-  if (!saved) { newStory(); return; }
-  S = saved;
-  if (!S.sid) S.sid = newSid();
-  renderAll();
-  if (S.state.current_state === 'S06_Ending') { setBusy(true); input.disabled = true; return; }
-  // If the last message is the player's (refresh mid-turn), offer a retry.
-  const last = S.transcript[S.transcript.length - 1];
-  if (last && last.who === 'user') {
-    addBubble('system', '⚠ interrupted mid-reply — tap to resend', { onclick: () => performTurn(last.text) });
+async function proceedBoot() {
+  ensureUser();
+  await ensureModule();
+  setBusy(true);
+  let p = null;
+  try { p = await fetch(sessionUrl()).then(r => r.json()); } catch { }
+  if (!p) {
+    chat.innerHTML = '';
+    addBubble('system', '⚠ can\'t reach the story server — tap to retry', { onclick: proceedBoot });
+    setBusy(false); return;
   }
-  setBusy(false);
-  lastYukiAt = Date.now();
-  armNudge();
+  if (p.exists) {
+    S.state = p.state; S.transcript = p.transcript || []; S.seq = p.seq || 0;
+    S.clockOffset = 6 * (S.state.beat || 0);
+    renderAll();
+    if (isEnded()) { setBusy(true); input.disabled = true; return; }
+    setBusy(false);
+    lastYukiAt = Date.now();
+    armNudge();
+  } else {
+    await newStory();
+  }
 }
 
 (function boot() {
+  ensureUser();                       // user_id ready before the waiver POST
   if (waiverSigned()) proceedBoot();
   else showWaiver();
 })();

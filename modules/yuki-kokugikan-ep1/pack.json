@@ -1,0 +1,3799 @@
+{
+  "meta": {
+    "title": "Quantum Murder Mysteries — Kokugikan Demo",
+    "cold_open": [
+      "are you awake?",
+      "Kenji never came home after that sumo training camp thing",
+      "i'm outside the Kokugikan\nthe tournament ended hours ago",
+      "his last text said:\n\"if they offer you the basement tour, don't laugh\"",
+      "i thought he was joking",
+      "what do i do?"
+    ],
+    "intents": {
+      "INVESTIGATE": "User tells Yuki to look closer, search, check an area, inspect an object, or follow a clue.",
+      "HIDE": "User tells Yuki to stay quiet, duck away, turn off her phone, avoid being seen, or wait.",
+      "CONFRONT": "User tells Yuki to challenge, question, accuse, threaten, or directly approach someone.",
+      "CALL_HELP": "User tells Yuki to call police, security, emergency services, friends, or witnesses.",
+      "RECORD_EVIDENCE": "User tells Yuki to record audio/video, take photos, send proof, or share location.",
+      "ESCAPE": "User tells Yuki to leave, run, get outside, or abandon the search.",
+      "RESCUE_KENJI": "User focuses on freeing Kenji or finding exactly where he is trapped.",
+      "OTHER": "User sends something ambiguous, emotional, off-path, or hard to classify."
+    },
+    "voice_example": "wait\ni think i found his phone\n\nit's not on the floor\n\nit's ringing from UNDER the ring"
+  },
+  "families": [
+    {
+      "n": 1,
+      "from": "S00_Cold_Open",
+      "to": "S01_First_Clue",
+      "bubbles": [
+        3,
+        8
+      ],
+      "shared_rules": [
+        "Write only as Yuki texting the user.",
+        "Use short, first-person text messages.",
+        "Keep the tone immediate, frightened, and intimate.",
+        "Do not summarize the whole plot.",
+        "Do not reveal Ura yet.",
+        "Do not start the yakuza fixer encounter yet.",
+        "Do not enter the hidden practice hall yet.",
+        "Do not confirm Kenji's exact location yet.",
+        "End by delivering one first clue and setting `clue_context`.",
+        "Use lowercase casually where it feels natural.",
+        "Let the user's exact suggestion influence Yuki's wording."
+      ],
+      "available_context": [
+        "Yuki is outside the Kokugikan after a tournament day.",
+        "Kenji is missing.",
+        "Kenji attended a shady \"training camp\" alone before disappearing.",
+        "Yuki has Kenji's last message, but not his location.",
+        "The arena is closing down.",
+        "There are lingering staff, vendors, security, and a few suspicious figures nearby."
+      ],
+      "input_fields": [
+        "current_state",
+        "classified_intent",
+        "user_message",
+        "known_context"
+      ],
+      "templates": {
+        "INVESTIGATE": {
+          "id": "R01_INVESTIGATE",
+          "intent": "INVESTIGATE",
+          "intent_desc": "Use when the user tells Yuki to search, look around, inspect the area, follow a clue, check where Kenji was last seen, or ask a nearby person for information.",
+          "template": "{{acknowledge_user_plan}}\n\nokay. i'll start with the place that still has people around\n\nthere's a chanko stall half-shuttered by the east side\nthe owner just stopped packing when i said Kenji's name\n\nhe definitely knows something\n\n{{first_clue_detail}}",
+          "fill_guidance": [
+            "`acknowledge_user_plan`: Briefly echo the user's investigative idea, e.g. \"yeah. you're right. someone had to see him.\"",
+            "`first_clue_detail`: Add one clue from the vendor area, such as a second meal ticket, a training-camp flyer, or the vendor glancing toward a restricted staff gate.",
+            "Keep this as a first clue. Do not have the vendor explain the whole false lead yet."
+          ],
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "value": "S01_First_Clue",
+              "raw": "`S01_First_Clue`"
+            },
+            {
+              "field": "last_template_id",
+              "kind": "set",
+              "value": "R01_INVESTIGATE",
+              "raw": "`R01_INVESTIGATE`"
+            },
+            {
+              "field": "last_intent",
+              "kind": "set",
+              "value": "INVESTIGATE",
+              "raw": "`INVESTIGATE`"
+            },
+            {
+              "field": "clue_context",
+              "kind": "set",
+              "value": "vendor_reaction",
+              "raw": "`vendor_reaction`"
+            },
+            {
+              "field": "scene_anchor",
+              "kind": "set",
+              "value": "chanko_stall",
+              "raw": "`chanko_stall`"
+            },
+            {
+              "field": "danger_level",
+              "kind": "skip",
+              "raw": "unchanged or +1 if the user's message pushes Yuki into a risky search"
+            },
+            {
+              "field": "evidence_found",
+              "kind": "skip",
+              "raw": "unchanged"
+            },
+            {
+              "field": "lead_suspicion",
+              "kind": "set",
+              "value": "vendor_or_staff",
+              "raw": "`vendor_or_staff`"
+            }
+          ]
+        },
+        "HIDE": {
+          "id": "R01_HIDE",
+          "intent": "HIDE",
+          "intent_desc": "Use when the user tells Yuki to stay quiet, hide, wait, observe, avoid being seen, turn down brightness, or be careful before acting.",
+          "template": "good call\n\ni'm moving away from the main lights\nphone brightness is all the way down\n\nthere's a service entrance propped open with a crate\ntwo staff just went in, but one of them looked back like he heard something\n\nthere's something tucked under the crate\ni can see Kenji's handwriting",
+          "fill_guidance": [
+            "Keep Yuki cautious and grateful.",
+            "Emphasize silence, shadows, lowered phone brightness, closed gates, or distant footsteps.",
+            "The clue should reward observation: a note, ticket stub, charm thread, or training-camp wristband.",
+            "Do not have Yuki enter the service corridor yet."
+          ],
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "value": "S01_First_Clue",
+              "raw": "`S01_First_Clue`"
+            },
+            {
+              "field": "last_template_id",
+              "kind": "set",
+              "value": "R01_HIDE",
+              "raw": "`R01_HIDE`"
+            },
+            {
+              "field": "last_intent",
+              "kind": "set",
+              "value": "HIDE",
+              "raw": "`HIDE`"
+            },
+            {
+              "field": "clue_context",
+              "kind": "set",
+              "value": "service_entrance_note",
+              "raw": "`service_entrance_note`"
+            },
+            {
+              "field": "scene_anchor",
+              "kind": "set",
+              "value": "service_entrance",
+              "raw": "`service_entrance`"
+            },
+            {
+              "field": "danger_level",
+              "kind": "add",
+              "n": -1,
+              "raw": "-1 or unchanged"
+            },
+            {
+              "field": "evidence_found",
+              "kind": "cond",
+              "lead": 1,
+              "raw": "+1 if the generated clue is physical evidence"
+            },
+            {
+              "field": "lead_suspicion",
+              "kind": "set",
+              "value": "arena_staff",
+              "raw": "`arena_staff`"
+            }
+          ]
+        },
+        "CONFRONT": {
+          "id": "R01_CONFRONT",
+          "intent": "CONFRONT",
+          "intent_desc": "Use when the user tells Yuki to directly approach, question, challenge, accuse, threaten, or demand answers from someone suspicious.",
+          "template": "i hate this idea\n\nbut i also don't think waiting helps Kenji\n\nthere's a man by the loading dock pretending not to watch the exits\nexpensive coat. hand tattoos. not staff.\n\ni said Kenji's name and he smiled like he expected it\n\nthen he looked at my phone",
+          "fill_guidance": [
+            "Yuki should sound scared but willing.",
+            "Keep this to first contact and threat atmosphere.",
+            "Do not let the fixer explain anything yet.",
+            "Do not turn this into the full yakuza fixer encounter; that belongs to a later response family.",
+            "If the user named a target, adapt the suspicious figure if plausible."
+          ],
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "value": "S01_First_Clue",
+              "raw": "`S01_First_Clue`"
+            },
+            {
+              "field": "last_template_id",
+              "kind": "set",
+              "value": "R01_CONFRONT",
+              "raw": "`R01_CONFRONT`"
+            },
+            {
+              "field": "last_intent",
+              "kind": "set",
+              "value": "CONFRONT",
+              "raw": "`CONFRONT`"
+            },
+            {
+              "field": "clue_context",
+              "kind": "set",
+              "value": "watched_by_tattooed_man",
+              "raw": "`watched_by_tattooed_man`"
+            },
+            {
+              "field": "scene_anchor",
+              "kind": "set",
+              "value": "loading_dock",
+              "raw": "`loading_dock`"
+            },
+            {
+              "field": "danger_level",
+              "kind": "add",
+              "n": 1,
+              "raw": "+1 or +2"
+            },
+            {
+              "field": "evidence_found",
+              "kind": "skip",
+              "raw": "unchanged"
+            },
+            {
+              "field": "lead_suspicion",
+              "kind": "set",
+              "value": "yakuza_fixer",
+              "raw": "`yakuza_fixer`"
+            }
+          ]
+        },
+        "CALL_HELP": {
+          "id": "R01_CALL_HELP",
+          "intent": "CALL_HELP",
+          "intent_desc": "Use when the user tells Yuki to call police, security, emergency services, a friend, arena staff, or anyone official.",
+          "template": "yeah\nokay\n\ni'm calling for help first\n\n...\n\nthey said because Kenji is an adult and there's no confirmed crime, i should file a report tomorrow\n\ntomorrow???\n\nwait\nthere's something tied to the restricted gate\nit looks like Kenji's charm",
+          "fill_guidance": [
+            "Let official help feel frustrating but not useless.",
+            "If the user suggests security instead of police, adapt the official contact to arena security.",
+            "The clue should appear while Yuki is still outside or near public-facing security.",
+            "Do not have help arrive yet."
+          ],
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "value": "S01_First_Clue",
+              "raw": "`S01_First_Clue`"
+            },
+            {
+              "field": "last_template_id",
+              "kind": "set",
+              "value": "R01_CALL_HELP",
+              "raw": "`R01_CALL_HELP`"
+            },
+            {
+              "field": "last_intent",
+              "kind": "set",
+              "value": "CALL_HELP",
+              "raw": "`CALL_HELP`"
+            },
+            {
+              "field": "clue_context",
+              "kind": "set",
+              "value": "restricted_gate_charm",
+              "raw": "`restricted_gate_charm`"
+            },
+            {
+              "field": "scene_anchor",
+              "kind": "set",
+              "value": "restricted_gate",
+              "raw": "`restricted_gate`"
+            },
+            {
+              "field": "danger_level",
+              "kind": "skip",
+              "raw": "unchanged"
+            },
+            {
+              "field": "evidence_found",
+              "kind": "cond",
+              "lead": 1,
+              "raw": "+1 if the charm is photographed or reported"
+            },
+            {
+              "field": "official_record_created",
+              "kind": "cond",
+              "lead": true,
+              "raw": "true if police or security are contacted"
+            },
+            {
+              "field": "lead_suspicion",
+              "kind": "set",
+              "value": "restricted_access",
+              "raw": "`restricted_access`"
+            }
+          ]
+        },
+        "RECORD_EVIDENCE": {
+          "id": "R01_RECORD_EVIDENCE",
+          "intent": "RECORD_EVIDENCE",
+          "intent_desc": "Use when the user tells Yuki to take photos, record video/audio, send her location, save proof, screenshot messages, or document everything.",
+          "template": "smart\n\ni'm turning on voice memo\nand i just sent you my location\n\ni'm taking pictures of the gate, the posters, everything\n\nthere's a fresh scuff mark near the staff entrance\nlike something heavy dragged over wet concrete\n\ni'm getting a photo before anyone sees me",
+          "fill_guidance": [
+            "Make Yuki actively document the scene.",
+            "Mention one specific piece of possible evidence.",
+            "Keep the evidence ambiguous at this stage.",
+            "If the user requested sending proof to someone else, include that if plausible.",
+            "Do not identify what was dragged yet."
+          ],
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "value": "S01_First_Clue",
+              "raw": "`S01_First_Clue`"
+            },
+            {
+              "field": "last_template_id",
+              "kind": "set",
+              "value": "R01_RECORD_EVIDENCE",
+              "raw": "`R01_RECORD_EVIDENCE`"
+            },
+            {
+              "field": "last_intent",
+              "kind": "set",
+              "value": "RECORD_EVIDENCE",
+              "raw": "`RECORD_EVIDENCE`"
+            },
+            {
+              "field": "clue_context",
+              "kind": "set",
+              "value": "drag_marks",
+              "raw": "`drag_marks`"
+            },
+            {
+              "field": "scene_anchor",
+              "kind": "set",
+              "value": "staff_entrance",
+              "raw": "`staff_entrance`"
+            },
+            {
+              "field": "danger_level",
+              "kind": "cond",
+              "lead": 1,
+              "raw": "+1 if she lingers in an exposed place"
+            },
+            {
+              "field": "evidence_found",
+              "kind": "add",
+              "n": 1,
+              "raw": "+1"
+            },
+            {
+              "field": "lead_suspicion",
+              "kind": "set",
+              "value": "staff_entrance",
+              "raw": "`staff_entrance`"
+            }
+          ]
+        },
+        "ESCAPE": {
+          "id": "R01_ESCAPE",
+          "intent": "ESCAPE",
+          "intent_desc": "Use when the user tells Yuki to leave, run, get somewhere safe, stop investigating, wait outside, or not go in alone.",
+          "template": "i know\n\ni know you're right\n\ni'm backing away from the gate\njust going to the main road where there are lights\n\n...\n\nsomeone left Kenji's ticket sleeve on the closed ticket window\n\nit wasn't there a second ago",
+          "fill_guidance": [
+            "Respect the user's safety-first instruction.",
+            "Do not punish the user for caution.",
+            "Pull Yuki back into the mystery with a clue that appears because someone wants her attention.",
+            "Use a clue that does not reveal Kenji's location yet, such as a ticket sleeve, charm thread, folded note, or training-camp card.",
+            "Do not produce Kenji's phone yet unless later templates establish it."
+          ],
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "value": "S01_First_Clue",
+              "raw": "`S01_First_Clue`"
+            },
+            {
+              "field": "last_template_id",
+              "kind": "set",
+              "value": "R01_ESCAPE",
+              "raw": "`R01_ESCAPE`"
+            },
+            {
+              "field": "last_intent",
+              "kind": "set",
+              "value": "ESCAPE",
+              "raw": "`ESCAPE`"
+            },
+            {
+              "field": "clue_context",
+              "kind": "set",
+              "value": "ticket_window_clue",
+              "raw": "`ticket_window_clue`"
+            },
+            {
+              "field": "scene_anchor",
+              "kind": "set",
+              "value": "ticket_window",
+              "raw": "`ticket_window`"
+            },
+            {
+              "field": "danger_level",
+              "kind": "add",
+              "n": -1,
+              "raw": "-1 or unchanged"
+            },
+            {
+              "field": "evidence_found",
+              "kind": "add",
+              "n": 1,
+              "raw": "+1"
+            },
+            {
+              "field": "lead_suspicion",
+              "kind": "set",
+              "value": "someone_luring_yuki",
+              "raw": "`someone_luring_yuki`"
+            }
+          ]
+        },
+        "RESCUE_KENJI": {
+          "id": "R01_RESCUE_KENJI",
+          "intent": "RESCUE_KENJI",
+          "intent_desc": "Use when the user focuses directly on finding Kenji, retracing his last known steps, checking his phone, searching for where he could be held, or moving urgently toward rescue.",
+          "template": "yes\nKenji first\n\ni'm checking his last text again\n\nhe wrote: \"if they offer you the basement tour, don't laugh\"\n\ni thought he was joking\n\nthere's a matching flyer taped near the west entrance\nsame phrase. same weird little stamp in the corner",
+          "fill_guidance": [
+            "Center Kenji emotionally.",
+            "Include one clue from Kenji's last message.",
+            "Point toward basement lore without sending Yuki downstairs yet.",
+            "Let the user message influence whether Yuki moves fast or carefully."
+          ],
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "value": "S01_First_Clue",
+              "raw": "`S01_First_Clue`"
+            },
+            {
+              "field": "last_template_id",
+              "kind": "set",
+              "value": "R01_RESCUE_KENJI",
+              "raw": "`R01_RESCUE_KENJI`"
+            },
+            {
+              "field": "last_intent",
+              "kind": "set",
+              "value": "RESCUE_KENJI",
+              "raw": "`RESCUE_KENJI`"
+            },
+            {
+              "field": "clue_context",
+              "kind": "set",
+              "value": "basement_tour_flyer",
+              "raw": "`basement_tour_flyer`"
+            },
+            {
+              "field": "scene_anchor",
+              "kind": "set",
+              "value": "west_entrance",
+              "raw": "`west_entrance`"
+            },
+            {
+              "field": "danger_level",
+              "kind": "cond",
+              "lead": 1,
+              "raw": "+1 if urgent/rushed, unchanged if cautious"
+            },
+            {
+              "field": "evidence_found",
+              "kind": "add",
+              "n": 1,
+              "raw": "+1"
+            },
+            {
+              "field": "lead_suspicion",
+              "kind": "set",
+              "value": "training_camp",
+              "raw": "`training_camp`"
+            }
+          ]
+        },
+        "OTHER": {
+          "id": "R01_OTHER",
+          "intent": "OTHER",
+          "intent_desc": "Use when the user message is ambiguous, emotional, off-path, meta, joking, contradictory, or does not clearly map to another intent.",
+          "template": "i'm trying to think\n\nsorry\nmy hands are shaking\n\ni'm going to do the safest useful thing:\nstay where people can still see me and look for anything with Kenji's name\n\nthere's a vendor closing up nearby\nand he just hid something when i looked over",
+          "fill_guidance": [
+            "Acknowledge the user's message without scolding or breaking immersion.",
+            "Choose a sensible default action: careful investigation near witnesses.",
+            "If the user's message includes emotional support, have Yuki respond warmly.",
+            "If the user's message is joking or strange, let Yuki stay focused and anxious.",
+            "Keep the clue general enough that the next classified intent can move the story naturally."
+          ],
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "value": "S01_First_Clue",
+              "raw": "`S01_First_Clue`"
+            },
+            {
+              "field": "last_template_id",
+              "kind": "set",
+              "value": "R01_OTHER",
+              "raw": "`R01_OTHER`"
+            },
+            {
+              "field": "last_intent",
+              "kind": "set",
+              "value": "OTHER",
+              "raw": "`OTHER`"
+            },
+            {
+              "field": "clue_context",
+              "kind": "set",
+              "value": "vendor_hid_object",
+              "raw": "`vendor_hid_object`"
+            },
+            {
+              "field": "scene_anchor",
+              "kind": "set",
+              "value": "public_concourse",
+              "raw": "`public_concourse`"
+            },
+            {
+              "field": "danger_level",
+              "kind": "skip",
+              "raw": "unchanged"
+            },
+            {
+              "field": "evidence_found",
+              "kind": "skip",
+              "raw": "unchanged"
+            },
+            {
+              "field": "lead_suspicion",
+              "kind": "set",
+              "value": "vendor_or_staff",
+              "raw": "`vendor_or_staff`"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "n": 2,
+      "from": "S01_First_Clue",
+      "to": "S02_False_Lead",
+      "bubbles": [
+        3,
+        8
+      ],
+      "shared_rules": [
+        "Write only as Yuki texting the user.",
+        "Use short, first-person text messages.",
+        "Keep the tone immediate, frightened, and intimate.",
+        "Refer to the stored `clue_context` and `scene_anchor` where possible.",
+        "Turn the first clue into a plausible but incomplete suspicion.",
+        "Keep the user feeling influential by echoing their latest suggestion.",
+        "Do not reveal Ura yet.",
+        "Do not confirm Kenji's exact location yet.",
+        "Do not enter the hidden practice hall yet.",
+        "Do not resolve whether the yakuza fixer is guilty.",
+        "End by delivering one false-lead pressure point and setting `false_lead_context`.",
+        "Use lowercase casually where it feels natural."
+      ],
+      "available_context": [
+        "Yuki is still in or near the Kokugikan after hours.",
+        "Kenji is missing after attending a shady \"training camp.\"",
+        "Yuki has one first clue from Response 01.",
+        "Someone appears to be luring or steering Yuki deeper into the arena.",
+        "Staff, vendors, security, and suspicious outsiders may all appear guilty at this stage.",
+        "Ura is the real antagonist, but Response 02 must not reveal or strongly imply this."
+      ],
+      "input_fields": [
+        "current_state",
+        "classified_intent",
+        "user_message",
+        "clue_context",
+        "scene_anchor",
+        "lead_suspicion",
+        "danger_level",
+        "evidence_found",
+        "official_record_created"
+      ],
+      "templates": {
+        "INVESTIGATE": {
+          "id": "R02_INVESTIGATE",
+          "intent": "INVESTIGATE",
+          "intent_desc": "Use when the user tells Yuki to follow the clue, search nearby, inspect an object, ask about the clue, compare details, or keep investigating.",
+          "template": "{{acknowledge_user_plan}}\n\ni'm checking the clue again\nthe weird part is {{specific_detail_from_clue_context}}\n\nthere's a name repeated on it:\n\"Papayasu\"\n\nvendor maybe. staff maybe.\nor maybe not a person at all.\ni don't know\n\nbut someone crossed it out hard enough to tear the paper",
+          "fill_guidance": [
+            "`acknowledge_user_plan`: Briefly echo the user's investigative suggestion.",
+            "`specific_detail_from_clue_context`: Use the stored first clue naturally, e.g. charm thread, flyer stamp, drag mark, hidden note, ticket sleeve.",
+            "\"Papayasu\" is a false-lead name or cover label. It can seem to refer to a vendor, usher, fake training-camp coordinator, or maintenance contractor.",
+            "Keep the clue suspicious but incomplete."
+          ],
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "value": "S02_False_Lead",
+              "raw": "`S02_False_Lead`"
+            },
+            {
+              "field": "last_template_id",
+              "kind": "set",
+              "value": "R02_INVESTIGATE",
+              "raw": "`R02_INVESTIGATE`"
+            },
+            {
+              "field": "last_intent",
+              "kind": "set",
+              "value": "INVESTIGATE",
+              "raw": "`INVESTIGATE`"
+            },
+            {
+              "field": "false_lead_context",
+              "kind": "set",
+              "value": "papayasu_name",
+              "raw": "`papayasu_name`"
+            },
+            {
+              "field": "scene_anchor",
+              "kind": "skip",
+              "raw": "preserve prior `scene_anchor` unless the generated response naturally shifts a few steps nearby"
+            },
+            {
+              "field": "danger_level",
+              "kind": "skip",
+              "raw": "unchanged or +1 if Yuki lingers exposed"
+            },
+            {
+              "field": "evidence_found",
+              "kind": "cond",
+              "lead": 1,
+              "raw": "+1 if Yuki photographs or keeps the clue"
+            },
+            {
+              "field": "lead_suspicion",
+              "kind": "set",
+              "value": "papayasu",
+              "raw": "`papayasu`"
+            }
+          ]
+        },
+        "HIDE": {
+          "id": "R02_HIDE",
+          "intent": "HIDE",
+          "intent_desc": "Use when the user tells Yuki to stay hidden, observe quietly, listen, wait, avoid being seen, lower the phone brightness, or watch before acting.",
+          "template": "okay\n\ni'm staying still\nnot moving unless i have to\n\ntwo staff just passed close enough that i could hear them\n\none said \"the fan from the tour\"\nthe other said \"Papayasu already handled it\"\n\nthen they both looked toward the loading dock",
+          "fill_guidance": [
+            "Reward caution with overheard information.",
+            "Keep the overheard dialogue fragmentary.",
+            "Use `scene_anchor` to determine whether the people are staff, vendor workers, security, or cleaners.",
+            "Do not identify Papayasu clearly."
+          ],
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "value": "S02_False_Lead",
+              "raw": "`S02_False_Lead`"
+            },
+            {
+              "field": "last_template_id",
+              "kind": "set",
+              "value": "R02_HIDE",
+              "raw": "`R02_HIDE`"
+            },
+            {
+              "field": "last_intent",
+              "kind": "set",
+              "value": "HIDE",
+              "raw": "`HIDE`"
+            },
+            {
+              "field": "false_lead_context",
+              "kind": "set",
+              "value": "overheard_papayasu",
+              "raw": "`overheard_papayasu`"
+            },
+            {
+              "field": "scene_anchor",
+              "kind": "skip",
+              "raw": "preserve prior `scene_anchor` or shift to `shadowed_concourse`"
+            },
+            {
+              "field": "danger_level",
+              "kind": "add",
+              "n": -1,
+              "raw": "-1 or unchanged"
+            },
+            {
+              "field": "evidence_found",
+              "kind": "skip",
+              "raw": "unchanged"
+            },
+            {
+              "field": "lead_suspicion",
+              "kind": "set",
+              "value": "arena_staff",
+              "raw": "`arena_staff`"
+            }
+          ]
+        },
+        "CONFRONT": {
+          "id": "R02_CONFRONT",
+          "intent": "CONFRONT",
+          "intent_desc": "Use when the user tells Yuki to confront, question, accuse, challenge, pressure, or demand answers from a suspicious person connected to the first clue.",
+          "template": "i asked\n\nprobably too directly\n\nthe second i said Kenji's name, {{target_reaction}}\n\nthey said i should stop looking for \"the tour people\"\n\nthen they pointed at the loading dock and said:\n\"ask Papayasu if you're brave\"\n\ni don't think that was advice",
+          "fill_guidance": [
+            "`target_reaction`: Adapt to the current `lead_suspicion` and `scene_anchor`, e.g. the vendor shuts the register, a guard steps closer, the tattooed man smiles, a staffer stops pretending not to hear.",
+            "The target should deflect toward Papayasu or the loading dock.",
+            "This is a false lead escalation, not the full fixer encounter."
+          ],
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "value": "S02_False_Lead",
+              "raw": "`S02_False_Lead`"
+            },
+            {
+              "field": "last_template_id",
+              "kind": "set",
+              "value": "R02_CONFRONT",
+              "raw": "`R02_CONFRONT`"
+            },
+            {
+              "field": "last_intent",
+              "kind": "set",
+              "value": "CONFRONT",
+              "raw": "`CONFRONT`"
+            },
+            {
+              "field": "false_lead_context",
+              "kind": "set",
+              "value": "directed_to_papayasu",
+              "raw": "`directed_to_papayasu`"
+            },
+            {
+              "field": "scene_anchor",
+              "kind": "set2",
+              "a": "loading_dock_edge",
+              "b": "scene_anchor",
+              "raw": "`loading_dock_edge` if the response moves Yuki toward the dock, otherwise preserve prior `scene_anchor`"
+            },
+            {
+              "field": "danger_level",
+              "kind": "add",
+              "n": 1,
+              "raw": "+1 or +2"
+            },
+            {
+              "field": "evidence_found",
+              "kind": "skip",
+              "raw": "unchanged"
+            },
+            {
+              "field": "lead_suspicion",
+              "kind": "set",
+              "value": "papayasu",
+              "raw": "`papayasu`"
+            },
+            {
+              "field": "yuki_has_been_seen",
+              "kind": "set",
+              "value": true,
+              "raw": "true"
+            }
+          ]
+        },
+        "CALL_HELP": {
+          "id": "R02_CALL_HELP",
+          "intent": "CALL_HELP",
+          "intent_desc": "Use when the user tells Yuki to call police, security, emergency services, a friend, arena staff, or another official source after the first clue.",
+          "template": "okay\n\ni'm trying official help again\ni sent them a picture of what i found\n\nsecurity says there's no Kenji on the exit cameras\n\nbut that's impossible\nhe came here for the tournament\n\nwait\nthe guard just asked if this was about \"Papayasu's basement tours\"\nthen he got quiet",
+          "fill_guidance": [
+            "Adapt \"security\" to police or another helper if the user named someone specific.",
+            "Official help should create friction and a record, but not rescue Yuki yet.",
+            "The false lead should emerge from an official source: access logs, camera gap, staff name, basement-tour rumor."
+          ],
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "value": "S02_False_Lead",
+              "raw": "`S02_False_Lead`"
+            },
+            {
+              "field": "last_template_id",
+              "kind": "set",
+              "value": "R02_CALL_HELP",
+              "raw": "`R02_CALL_HELP`"
+            },
+            {
+              "field": "last_intent",
+              "kind": "set",
+              "value": "CALL_HELP",
+              "raw": "`CALL_HELP`"
+            },
+            {
+              "field": "false_lead_context",
+              "kind": "set",
+              "value": "official_mentions_papayasu",
+              "raw": "`official_mentions_papayasu`"
+            },
+            {
+              "field": "scene_anchor",
+              "kind": "set",
+              "value": "security_desk_or_phone_call",
+              "raw": "`security_desk_or_phone_call`"
+            },
+            {
+              "field": "danger_level",
+              "kind": "skip",
+              "raw": "unchanged"
+            },
+            {
+              "field": "evidence_found",
+              "kind": "skip",
+              "raw": "unchanged or +1 if Yuki sends proof"
+            },
+            {
+              "field": "official_record_created",
+              "kind": "set",
+              "value": true,
+              "raw": "true"
+            },
+            {
+              "field": "lead_suspicion",
+              "kind": "set",
+              "value": "restricted_access",
+              "raw": "`restricted_access`"
+            }
+          ]
+        },
+        "RECORD_EVIDENCE": {
+          "id": "R02_RECORD_EVIDENCE",
+          "intent": "RECORD_EVIDENCE",
+          "intent_desc": "Use when the user tells Yuki to take photos, record audio/video, send proof, share location, save messages, or document the first clue.",
+          "template": "doing it\n\ni'm recording now\ncamera too\n\ni zoomed in on {{specific_detail_from_clue_context}}\n\nthere's a little stamp i missed before\nsame mark on the training-camp flyer\n\nand under it, handwritten:\n\"Papayasu - after final bout\"",
+          "fill_guidance": [
+            "`specific_detail_from_clue_context`: Use the stored first clue as the evidence subject.",
+            "Make the evidence useful but still misleading.",
+            "If `evidence_found` is already high, mention Yuki organizing or sending what she has.",
+            "Do not let the evidence point directly to Ura."
+          ],
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "value": "S02_False_Lead",
+              "raw": "`S02_False_Lead`"
+            },
+            {
+              "field": "last_template_id",
+              "kind": "set",
+              "value": "R02_RECORD_EVIDENCE",
+              "raw": "`R02_RECORD_EVIDENCE`"
+            },
+            {
+              "field": "last_intent",
+              "kind": "set",
+              "value": "RECORD_EVIDENCE",
+              "raw": "`RECORD_EVIDENCE`"
+            },
+            {
+              "field": "false_lead_context",
+              "kind": "set",
+              "value": "stamped_training_camp_mark",
+              "raw": "`stamped_training_camp_mark`"
+            },
+            {
+              "field": "scene_anchor",
+              "kind": "skip",
+              "raw": "preserve prior `scene_anchor`"
+            },
+            {
+              "field": "danger_level",
+              "kind": "cond",
+              "lead": 1,
+              "raw": "+1 if Yuki stays exposed while recording"
+            },
+            {
+              "field": "evidence_found",
+              "kind": "add",
+              "n": 1,
+              "raw": "+1"
+            },
+            {
+              "field": "lead_suspicion",
+              "kind": "set",
+              "value": "training_camp",
+              "raw": "`training_camp`"
+            }
+          ]
+        },
+        "ESCAPE": {
+          "id": "R02_ESCAPE",
+          "intent": "ESCAPE",
+          "intent_desc": "Use when the user tells Yuki to leave, run, stay outside, get to safety, stop investigating, or avoid going deeper.",
+          "template": "i'm backing off\n\nreally\ni'm going toward the street\n\nbut someone just called from behind the closed gate\n\nthey said:\n\"if you want your friend, stop asking about Papayasu\"\n\nthen the lights over the ticket windows went out",
+          "fill_guidance": [
+            "Respect the safety-first user message.",
+            "Do not make escape useless; make it reveal that someone is actively watching or steering Yuki.",
+            "Keep Yuki physically safer than in confrontational templates, but emotionally boxed in.",
+            "Do not move to the hidden hall yet."
+          ],
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "value": "S02_False_Lead",
+              "raw": "`S02_False_Lead`"
+            },
+            {
+              "field": "last_template_id",
+              "kind": "set",
+              "value": "R02_ESCAPE",
+              "raw": "`R02_ESCAPE`"
+            },
+            {
+              "field": "last_intent",
+              "kind": "set",
+              "value": "ESCAPE",
+              "raw": "`ESCAPE`"
+            },
+            {
+              "field": "false_lead_context",
+              "kind": "set",
+              "value": "warning_to_drop_papayasu",
+              "raw": "`warning_to_drop_papayasu`"
+            },
+            {
+              "field": "scene_anchor",
+              "kind": "set",
+              "value": "public_exit",
+              "raw": "`public_exit`"
+            },
+            {
+              "field": "danger_level",
+              "kind": "add",
+              "n": -1,
+              "raw": "-1 or unchanged"
+            },
+            {
+              "field": "evidence_found",
+              "kind": "skip",
+              "raw": "unchanged"
+            },
+            {
+              "field": "lead_suspicion",
+              "kind": "set",
+              "value": "someone_luring_yuki",
+              "raw": "`someone_luring_yuki`"
+            },
+            {
+              "field": "yuki_has_been_seen",
+              "kind": "set",
+              "value": true,
+              "raw": "true"
+            }
+          ]
+        },
+        "RESCUE_KENJI": {
+          "id": "R02_RESCUE_KENJI",
+          "intent": "RESCUE_KENJI",
+          "intent_desc": "Use when the user tells Yuki to focus on Kenji, follow his last known trail, find where he is being held, check the training camp clue, or move urgently toward rescue.",
+          "template": "right\nKenji\n\ni'm checking everything for his name, not theirs\n\nthere's a sign-in sheet folded behind the flyer\nmostly fake names, i think\n\nbut Kenji's name is there\n\nnext to it someone wrote:\n\"Papayasu pickup - no guests\"",
+          "fill_guidance": [
+            "Center Kenji and keep the emotional urgency.",
+            "Use the first clue as a path to a sign-in sheet, pickup note, guest list, ticket log, or training-camp roster.",
+            "The false lead points to Papayasu or a pickup process, not Kenji's actual burial location.",
+            "Do not reveal that Kenji is under the dohyo."
+          ],
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "value": "S02_False_Lead",
+              "raw": "`S02_False_Lead`"
+            },
+            {
+              "field": "last_template_id",
+              "kind": "set",
+              "value": "R02_RESCUE_KENJI",
+              "raw": "`R02_RESCUE_KENJI`"
+            },
+            {
+              "field": "last_intent",
+              "kind": "set",
+              "value": "RESCUE_KENJI",
+              "raw": "`RESCUE_KENJI`"
+            },
+            {
+              "field": "false_lead_context",
+              "kind": "set",
+              "value": "kenji_on_roster",
+              "raw": "`kenji_on_roster`"
+            },
+            {
+              "field": "scene_anchor",
+              "kind": "skip",
+              "raw": "preserve prior `scene_anchor` or shift to `posted_roster`"
+            },
+            {
+              "field": "danger_level",
+              "kind": "cond",
+              "lead": 1,
+              "raw": "+1 if the user urges haste, unchanged if cautious"
+            },
+            {
+              "field": "evidence_found",
+              "kind": "add",
+              "n": 1,
+              "raw": "+1"
+            },
+            {
+              "field": "lead_suspicion",
+              "kind": "set",
+              "value": "training_camp",
+              "raw": "`training_camp`"
+            }
+          ]
+        },
+        "OTHER": {
+          "id": "R02_OTHER",
+          "intent": "OTHER",
+          "intent_desc": "Use when the user message is ambiguous, emotional, off-path, meta, joking, contradictory, or does not clearly map to another intent.",
+          "template": "i'm trying to keep my head clear\n\nthere has to be a simple answer\nthere has to be\n\ni looked at the clue again\nand there is one name that keeps showing up\n\nPapayasu\n\ni don't know who that is\nbut everyone here seems scared of it",
+          "fill_guidance": [
+            "Acknowledge emotional support if present.",
+            "If the user message is confusing, choose the clearest default: Yuki re-examines the first clue.",
+            "Keep the false lead easy for later templates to use.",
+            "Do not break immersion or mention classification."
+          ],
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "value": "S02_False_Lead",
+              "raw": "`S02_False_Lead`"
+            },
+            {
+              "field": "last_template_id",
+              "kind": "set",
+              "value": "R02_OTHER",
+              "raw": "`R02_OTHER`"
+            },
+            {
+              "field": "last_intent",
+              "kind": "set",
+              "value": "OTHER",
+              "raw": "`OTHER`"
+            },
+            {
+              "field": "false_lead_context",
+              "kind": "set",
+              "value": "papayasu_name",
+              "raw": "`papayasu_name`"
+            },
+            {
+              "field": "scene_anchor",
+              "kind": "skip",
+              "raw": "preserve prior `scene_anchor`"
+            },
+            {
+              "field": "danger_level",
+              "kind": "skip",
+              "raw": "unchanged"
+            },
+            {
+              "field": "evidence_found",
+              "kind": "skip",
+              "raw": "unchanged"
+            },
+            {
+              "field": "lead_suspicion",
+              "kind": "set",
+              "value": "papayasu",
+              "raw": "`papayasu`"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "n": 3,
+      "from": "S02_False_Lead",
+      "to": "S03_Threshold",
+      "bubbles": [
+        3,
+        8
+      ],
+      "shared_rules": [
+        "Write only as Yuki texting the user.",
+        "Use short, first-person text messages.",
+        "Keep the tone immediate, frightened, and intimate.",
+        "Refer to `false_lead_context` and Papayasu where possible.",
+        "Let the Papayasu lead crack or deepen, but do not fully resolve it.",
+        "End with Yuki at the boundary of the hidden operation: a basement door, freight elevator, old stairwell, locked corridor, or loading-dock access point.",
+        "Do not enter the hidden practice hall yet.",
+        "Do not reveal Ura yet.",
+        "Do not confirm Kenji's exact location yet.",
+        "Do not establish the yakuza fixer as trustworthy yet.",
+        "End by delivering one threshold pressure point and setting `threshold_context`.",
+        "Use lowercase casually where it feels natural."
+      ],
+      "available_context": [
+        "Yuki is inside or just outside the closing Kokugikan.",
+        "The false lead currently points toward Papayasu.",
+        "Papayasu may be a person, front, label, pickup process, or decoy.",
+        "Someone is steering Yuki toward restricted lower levels.",
+        "Staff, vendors, security, and suspicious outsiders may still look guilty.",
+        "Ura is the real antagonist, but Response 03 must not reveal or strongly imply this."
+      ],
+      "input_fields": [
+        "current_state",
+        "classified_intent",
+        "user_message",
+        "clue_context",
+        "false_lead_context",
+        "scene_anchor",
+        "lead_suspicion",
+        "danger_level",
+        "evidence_found",
+        "official_record_created",
+        "yuki_has_been_seen"
+      ],
+      "templates": {
+        "INVESTIGATE": {
+          "id": "R03_INVESTIGATE",
+          "intent": "INVESTIGATE",
+          "intent_desc": "Use when the user tells Yuki to investigate the Papayasu lead, inspect the false-lead clue, follow the name, search nearby, or compare details.",
+          "template": "{{acknowledge_user_plan}}\n\ni followed the Papayasu mark instead of the name\n\nit's on a maintenance label by a freight elevator\nnot a public one\n\nthe basement button is scratched out\n\nsomeone taped a paper charm over the keyhole\nand it's still warm from someone's hand",
+          "fill_guidance": [
+            "`acknowledge_user_plan`: Briefly echo the user's investigative suggestion.",
+            "Make Papayasu feel less like a simple suspect and more like a system or front.",
+            "Use the existing `scene_anchor` if possible, but let Yuki move a short distance to the threshold.",
+            "Do not open the elevator or door yet."
+          ],
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "value": "S03_Threshold",
+              "raw": "`S03_Threshold`"
+            },
+            {
+              "field": "last_template_id",
+              "kind": "set",
+              "value": "R03_INVESTIGATE",
+              "raw": "`R03_INVESTIGATE`"
+            },
+            {
+              "field": "last_intent",
+              "kind": "set",
+              "value": "INVESTIGATE",
+              "raw": "`INVESTIGATE`"
+            },
+            {
+              "field": "threshold_context",
+              "kind": "set",
+              "value": "freight_elevator_b2",
+              "raw": "`freight_elevator_b2`"
+            },
+            {
+              "field": "scene_anchor",
+              "kind": "set",
+              "value": "freight_elevator",
+              "raw": "`freight_elevator`"
+            },
+            {
+              "field": "danger_level",
+              "kind": "skip",
+              "raw": "unchanged or +1"
+            },
+            {
+              "field": "evidence_found",
+              "kind": "cond",
+              "lead": 1,
+              "raw": "+1 if Yuki documents the label or charm"
+            },
+            {
+              "field": "lead_suspicion",
+              "kind": "set",
+              "value": "restricted_access",
+              "raw": "`restricted_access`"
+            },
+            {
+              "field": "access_vector",
+              "kind": "set",
+              "value": "elevator_keyhole",
+              "raw": "`elevator_keyhole`"
+            },
+            {
+              "field": "papayasu_status",
+              "kind": "set",
+              "value": "unclear_front",
+              "raw": "`unclear_front`"
+            }
+          ]
+        },
+        "HIDE": {
+          "id": "R03_HIDE",
+          "intent": "HIDE",
+          "intent_desc": "Use when the user tells Yuki to stay hidden, wait, listen, observe quietly, avoid being seen, or keep her phone dark.",
+          "template": "okay\n\ni tucked behind the drink machines\ni'm barely breathing\n\ntwo men passed by close enough to hear\n\none said \"Papayasu brought another fan to the side door\"\nthe other said \"the patron doesn't want names near the basement\"\n\nthey stopped at a black door with no handle",
+          "fill_guidance": [
+            "Reward caution with overheard threshold information.",
+            "Keep dialogue fragmentary and threatening.",
+            "Do not identify the patron.",
+            "Do not let Yuki follow them through the door yet."
+          ],
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "value": "S03_Threshold",
+              "raw": "`S03_Threshold`"
+            },
+            {
+              "field": "last_template_id",
+              "kind": "set",
+              "value": "R03_HIDE",
+              "raw": "`R03_HIDE`"
+            },
+            {
+              "field": "last_intent",
+              "kind": "set",
+              "value": "HIDE",
+              "raw": "`HIDE`"
+            },
+            {
+              "field": "threshold_context",
+              "kind": "set",
+              "value": "black_basement_door",
+              "raw": "`black_basement_door`"
+            },
+            {
+              "field": "scene_anchor",
+              "kind": "set",
+              "value": "shadowed_concourse",
+              "raw": "`shadowed_concourse`"
+            },
+            {
+              "field": "danger_level",
+              "kind": "add",
+              "n": -1,
+              "raw": "-1 or unchanged"
+            },
+            {
+              "field": "evidence_found",
+              "kind": "skip",
+              "raw": "unchanged"
+            },
+            {
+              "field": "lead_suspicion",
+              "kind": "set",
+              "value": "arena_staff",
+              "raw": "`arena_staff`"
+            },
+            {
+              "field": "access_vector",
+              "kind": "set",
+              "value": "unmarked_door",
+              "raw": "`unmarked_door`"
+            },
+            {
+              "field": "papayasu_status",
+              "kind": "set",
+              "value": "possible_handler",
+              "raw": "`possible_handler`"
+            }
+          ]
+        },
+        "CONFRONT": {
+          "id": "R03_CONFRONT",
+          "intent": "CONFRONT",
+          "intent_desc": "Use when the user tells Yuki to confront, challenge, question, accuse, pressure, or demand answers from someone connected to Papayasu.",
+          "template": "i said Papayasu's name to the wrong person\n\nthe tattooed man by the dock stopped smiling\n\nhe said:\n\"Papayasu is what we tell tourists\"\n\nthen he knocked twice on the loading door\nonce slow after that\n\nsomeone answered from below",
+          "fill_guidance": [
+            "Make the confrontation scary and useful.",
+            "The target can be the tattooed man, staffer, vendor, or security guard depending on prior state.",
+            "Papayasu should crack as a cover story, not disappear from the plot.",
+            "Do not turn the fixer into an ally yet."
+          ],
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "value": "S03_Threshold",
+              "raw": "`S03_Threshold`"
+            },
+            {
+              "field": "last_template_id",
+              "kind": "set",
+              "value": "R03_CONFRONT",
+              "raw": "`R03_CONFRONT`"
+            },
+            {
+              "field": "last_intent",
+              "kind": "set",
+              "value": "CONFRONT",
+              "raw": "`CONFRONT`"
+            },
+            {
+              "field": "threshold_context",
+              "kind": "set",
+              "value": "loading_dock_basement_signal",
+              "raw": "`loading_dock_basement_signal`"
+            },
+            {
+              "field": "scene_anchor",
+              "kind": "set",
+              "value": "loading_dock",
+              "raw": "`loading_dock`"
+            },
+            {
+              "field": "danger_level",
+              "kind": "add",
+              "n": 2,
+              "raw": "+2"
+            },
+            {
+              "field": "evidence_found",
+              "kind": "skip",
+              "raw": "unchanged"
+            },
+            {
+              "field": "lead_suspicion",
+              "kind": "set",
+              "value": "yakuza_fixer",
+              "raw": "`yakuza_fixer`"
+            },
+            {
+              "field": "yuki_has_been_seen",
+              "kind": "set",
+              "value": true,
+              "raw": "true"
+            },
+            {
+              "field": "access_vector",
+              "kind": "set",
+              "value": "knock_pattern",
+              "raw": "`knock_pattern`"
+            },
+            {
+              "field": "papayasu_status",
+              "kind": "set",
+              "value": "cover_story",
+              "raw": "`cover_story`"
+            }
+          ]
+        },
+        "CALL_HELP": {
+          "id": "R03_CALL_HELP",
+          "intent": "CALL_HELP",
+          "intent_desc": "Use when the user tells Yuki to call police, security, emergency services, a friend, arena staff, or another official source while she is following the Papayasu lead.",
+          "template": "okay\n\ni showed security the Papayasu thing\nthe guard pulled up the access log\n\nthere's no basement tour in the system\n\nbut there is an entry from after the final bout:\n\"private repair - dohyo storage\"\n\nthe guard went pale and closed the laptop\n\nthen he told me to leave through the main doors\nbut he left a service map on the counter",
+          "fill_guidance": [
+            "Adapt security to police or another helper if the user named someone specific.",
+            "Official help should create a record and surface a threshold, not rescue Yuki.",
+            "The service map should point to a lower-level threshold without sending Yuki through it yet."
+          ],
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "value": "S03_Threshold",
+              "raw": "`S03_Threshold`"
+            },
+            {
+              "field": "last_template_id",
+              "kind": "set",
+              "value": "R03_CALL_HELP",
+              "raw": "`R03_CALL_HELP`"
+            },
+            {
+              "field": "last_intent",
+              "kind": "set",
+              "value": "CALL_HELP",
+              "raw": "`CALL_HELP`"
+            },
+            {
+              "field": "threshold_context",
+              "kind": "set",
+              "value": "service_map_dohyo_storage",
+              "raw": "`service_map_dohyo_storage`"
+            },
+            {
+              "field": "scene_anchor",
+              "kind": "set",
+              "value": "security_desk",
+              "raw": "`security_desk`"
+            },
+            {
+              "field": "danger_level",
+              "kind": "skip",
+              "raw": "unchanged"
+            },
+            {
+              "field": "evidence_found",
+              "kind": "cond",
+              "lead": 1,
+              "raw": "+1 if Yuki photographs the map or log"
+            },
+            {
+              "field": "official_record_created",
+              "kind": "set",
+              "value": true,
+              "raw": "true"
+            },
+            {
+              "field": "lead_suspicion",
+              "kind": "set",
+              "value": "restricted_access",
+              "raw": "`restricted_access`"
+            },
+            {
+              "field": "access_vector",
+              "kind": "set",
+              "value": "service_map",
+              "raw": "`service_map`"
+            },
+            {
+              "field": "papayasu_status",
+              "kind": "set",
+              "value": "not_in_system",
+              "raw": "`not_in_system`"
+            }
+          ]
+        },
+        "RECORD_EVIDENCE": {
+          "id": "R03_RECORD_EVIDENCE",
+          "intent": "RECORD_EVIDENCE",
+          "intent_desc": "Use when the user tells Yuki to record audio/video, take photos, send proof, share location, screenshot clues, or document the Papayasu lead.",
+          "template": "doing it\n\ni'm recording everything now\n\nwhen i zoomed in on the Papayasu stamp\ni saw something reflected in the glass behind it\n\na door code panel\nand a sign behind the person holding the paper\n\n\"west stairs - lower practice\"\n\ni think this was taken inside the arena",
+          "fill_guidance": [
+            "Make the user's evidence instinct pay off.",
+            "The evidence should reveal a threshold access point, not the hidden hall itself.",
+            "If `evidence_found` is already high, mention that Yuki sends a backup before moving.",
+            "Do not reveal Ura in the reflection."
+          ],
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "value": "S03_Threshold",
+              "raw": "`S03_Threshold`"
+            },
+            {
+              "field": "last_template_id",
+              "kind": "set",
+              "value": "R03_RECORD_EVIDENCE",
+              "raw": "`R03_RECORD_EVIDENCE`"
+            },
+            {
+              "field": "last_intent",
+              "kind": "set",
+              "value": "RECORD_EVIDENCE",
+              "raw": "`RECORD_EVIDENCE`"
+            },
+            {
+              "field": "threshold_context",
+              "kind": "set",
+              "value": "west_stairs_lower_practice",
+              "raw": "`west_stairs_lower_practice`"
+            },
+            {
+              "field": "scene_anchor",
+              "kind": "set",
+              "value": "west_stairs_sign",
+              "raw": "`west_stairs_sign`"
+            },
+            {
+              "field": "danger_level",
+              "kind": "cond",
+              "lead": 1,
+              "raw": "+1 if Yuki stays exposed"
+            },
+            {
+              "field": "evidence_found",
+              "kind": "add",
+              "n": 1,
+              "raw": "+1"
+            },
+            {
+              "field": "lead_suspicion",
+              "kind": "set",
+              "value": "training_camp",
+              "raw": "`training_camp`"
+            },
+            {
+              "field": "access_vector",
+              "kind": "set",
+              "value": "photo_reflection",
+              "raw": "`photo_reflection`"
+            },
+            {
+              "field": "papayasu_status",
+              "kind": "set",
+              "value": "staged_clue",
+              "raw": "`staged_clue`"
+            }
+          ]
+        },
+        "ESCAPE": {
+          "id": "R03_ESCAPE",
+          "intent": "ESCAPE",
+          "intent_desc": "Use when the user tells Yuki to leave, run, stay in public, get outside, stop following the clue, or avoid going deeper.",
+          "template": "i'm trying to leave\n\ni'm almost back at the street\n\nbut Kenji's number just texted me\n\n\"Papayasu lied\"\n\"lower west\"\n\nthat's all\n\nthen the message vanished",
+          "fill_guidance": [
+            "Respect the user's safety-first instruction.",
+            "Let Yuki physically move toward safety, but reveal that the mystery is actively pulling her back.",
+            "The text should create a threshold clue without confirming Kenji sent it.",
+            "Do not move Yuki into the lower level yet."
+          ],
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "value": "S03_Threshold",
+              "raw": "`S03_Threshold`"
+            },
+            {
+              "field": "last_template_id",
+              "kind": "set",
+              "value": "R03_ESCAPE",
+              "raw": "`R03_ESCAPE`"
+            },
+            {
+              "field": "last_intent",
+              "kind": "set",
+              "value": "ESCAPE",
+              "raw": "`ESCAPE`"
+            },
+            {
+              "field": "threshold_context",
+              "kind": "set",
+              "value": "lower_west_message",
+              "raw": "`lower_west_message`"
+            },
+            {
+              "field": "scene_anchor",
+              "kind": "set",
+              "value": "public_exit",
+              "raw": "`public_exit`"
+            },
+            {
+              "field": "danger_level",
+              "kind": "add",
+              "n": -1,
+              "raw": "-1 or unchanged"
+            },
+            {
+              "field": "evidence_found",
+              "kind": "cond",
+              "lead": 1,
+              "raw": "+1 if Yuki screenshots the message"
+            },
+            {
+              "field": "lead_suspicion",
+              "kind": "set",
+              "value": "someone_luring_yuki",
+              "raw": "`someone_luring_yuki`"
+            },
+            {
+              "field": "yuki_has_been_seen",
+              "kind": "set",
+              "value": true,
+              "raw": "true"
+            },
+            {
+              "field": "access_vector",
+              "kind": "set",
+              "value": "vanishing_text",
+              "raw": "`vanishing_text`"
+            },
+            {
+              "field": "papayasu_status",
+              "kind": "set",
+              "value": "lie",
+              "raw": "`lie`"
+            }
+          ]
+        },
+        "RESCUE_KENJI": {
+          "id": "R03_RESCUE_KENJI",
+          "intent": "RESCUE_KENJI",
+          "intent_desc": "Use when the user tells Yuki to focus on Kenji, ignore distractions, search for where he was taken, follow his last known trail, or move urgently toward rescue.",
+          "template": "yes\nforget Papayasu for a second\n\ni'm looking for Kenji's trail\n\nhis name is on the roster\nbut the pickup note has an arrow under it\n\n\"B2\"\n\"do not use elevator\"\n\nthere's an old stairwell past the west entrance\nand the light under the door is moving",
+          "fill_guidance": [
+            "Center Kenji and make the user feel right to refocus.",
+            "Keep Papayasu present as a distraction rather than the answer.",
+            "Point to a threshold, not the hidden hall.",
+            "Do not confirm Kenji is below the dohyo."
+          ],
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "value": "S03_Threshold",
+              "raw": "`S03_Threshold`"
+            },
+            {
+              "field": "last_template_id",
+              "kind": "set",
+              "value": "R03_RESCUE_KENJI",
+              "raw": "`R03_RESCUE_KENJI`"
+            },
+            {
+              "field": "last_intent",
+              "kind": "set",
+              "value": "RESCUE_KENJI",
+              "raw": "`RESCUE_KENJI`"
+            },
+            {
+              "field": "threshold_context",
+              "kind": "set",
+              "value": "old_west_stairwell",
+              "raw": "`old_west_stairwell`"
+            },
+            {
+              "field": "scene_anchor",
+              "kind": "set",
+              "value": "west_entrance",
+              "raw": "`west_entrance`"
+            },
+            {
+              "field": "danger_level",
+              "kind": "cond",
+              "lead": 1,
+              "raw": "+1 if rushed, unchanged if careful"
+            },
+            {
+              "field": "evidence_found",
+              "kind": "add",
+              "n": 1,
+              "raw": "+1"
+            },
+            {
+              "field": "lead_suspicion",
+              "kind": "set",
+              "value": "training_camp",
+              "raw": "`training_camp`"
+            },
+            {
+              "field": "access_vector",
+              "kind": "set",
+              "value": "stairwell",
+              "raw": "`stairwell`"
+            },
+            {
+              "field": "papayasu_status",
+              "kind": "set",
+              "value": "distraction",
+              "raw": "`distraction`"
+            }
+          ]
+        },
+        "OTHER": {
+          "id": "R03_OTHER",
+          "intent": "OTHER",
+          "intent_desc": "Use when the user message is ambiguous, emotional, off-path, meta, joking, contradictory, or does not clearly map to another intent.",
+          "template": "i don't know what the right move is\n\nso i'm comparing everything\nthe flyer, the note, the ticket sleeve\n\nPapayasu shows up anywhere something points down\n\nnot like a person\nlike a label\n\nthere's a basement door with the same stamp",
+          "fill_guidance": [
+            "Acknowledge emotional support if present.",
+            "If the user message is confusing, choose a cautious default: Yuki compares known clues.",
+            "Make the threshold clear and usable for Response 04.",
+            "Do not break immersion or mention classification."
+          ],
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "value": "S03_Threshold",
+              "raw": "`S03_Threshold`"
+            },
+            {
+              "field": "last_template_id",
+              "kind": "set",
+              "value": "R03_OTHER",
+              "raw": "`R03_OTHER`"
+            },
+            {
+              "field": "last_intent",
+              "kind": "set",
+              "value": "OTHER",
+              "raw": "`OTHER`"
+            },
+            {
+              "field": "threshold_context",
+              "kind": "set",
+              "value": "stamped_basement_door",
+              "raw": "`stamped_basement_door`"
+            },
+            {
+              "field": "scene_anchor",
+              "kind": "set",
+              "value": "basement_door",
+              "raw": "`basement_door`"
+            },
+            {
+              "field": "danger_level",
+              "kind": "skip",
+              "raw": "unchanged"
+            },
+            {
+              "field": "evidence_found",
+              "kind": "skip",
+              "raw": "unchanged"
+            },
+            {
+              "field": "lead_suspicion",
+              "kind": "set",
+              "value": "restricted_access",
+              "raw": "`restricted_access`"
+            },
+            {
+              "field": "access_vector",
+              "kind": "set",
+              "value": "basement_stamp",
+              "raw": "`basement_stamp`"
+            },
+            {
+              "field": "papayasu_status",
+              "kind": "set",
+              "value": "unclear_front",
+              "raw": "`unclear_front`"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "n": 4,
+      "from": "S03_Threshold",
+      "to": "S04_Hidden_Hall",
+      "bubbles": [
+        3,
+        8
+      ],
+      "shared_rules": [
+        "Write only as Yuki texting the user.",
+        "Use short, first-person text messages.",
+        "Keep the tone immediate, frightened, and intimate.",
+        "Refer to `threshold_context`, `access_vector`, or Papayasu where possible.",
+        "Get Yuki into the hidden practice hall or close enough to see inside it.",
+        "Reveal the hall as wrong, old, hidden, and connected to sumo practice.",
+        "Do not reveal Ura yet.",
+        "Do not fully explain the ritual yet.",
+        "Do not confirm Kenji's exact location yet.",
+        "Do not have Yuki rescue Kenji yet.",
+        "End by delivering one hidden-hall discovery and setting `hidden_hall_context`.",
+        "Use lowercase casually where it feels natural."
+      ],
+      "available_context": [
+        "Yuki is at a lower-level threshold inside the Kokugikan.",
+        "Papayasu has become a cracked false lead, cover story, or lure.",
+        "Someone may already know Yuki is investigating.",
+        "The hidden space should feel like a private practice hall, old storage room, or concealed dojo under the arena.",
+        "Response 05 will turn the hidden-hall clue into the ritual discovery and Ura reveal, so Response 04 should hold back the final answer."
+      ],
+      "input_fields": [
+        "current_state",
+        "classified_intent",
+        "user_message",
+        "clue_context",
+        "false_lead_context",
+        "threshold_context",
+        "scene_anchor",
+        "lead_suspicion",
+        "danger_level",
+        "evidence_found",
+        "official_record_created",
+        "yuki_has_been_seen",
+        "access_vector",
+        "papayasu_status"
+      ],
+      "templates": {
+        "INVESTIGATE": {
+          "id": "R04_INVESTIGATE",
+          "intent": "INVESTIGATE",
+          "intent_desc": "Use when the user tells Yuki to inspect the threshold, open the door carefully, search for a way in, follow the access clue, or keep investigating.",
+          "template": "{{acknowledge_user_plan}}\n\ni checked the door before touching it\nno alarm that i can see\n\nthe lock was already scratched open\n\ni'm inside now\n\nit's a practice room\nbut old. hidden.\n\nthere are fan towels folded along the wall\nall different names",
+          "fill_guidance": [
+            "`acknowledge_user_plan`: Briefly echo the user's careful investigative suggestion.",
+            "Use the stored `threshold_context` to describe the threshold Yuki passes through.",
+            "Make the hidden hall eerie but not fully supernatural yet.",
+            "Do not identify the owners of all the towels or explain why they are there."
+          ],
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "value": "S04_Hidden_Hall",
+              "raw": "`S04_Hidden_Hall`"
+            },
+            {
+              "field": "last_template_id",
+              "kind": "set",
+              "value": "R04_INVESTIGATE",
+              "raw": "`R04_INVESTIGATE`"
+            },
+            {
+              "field": "last_intent",
+              "kind": "set",
+              "value": "INVESTIGATE",
+              "raw": "`INVESTIGATE`"
+            },
+            {
+              "field": "hidden_hall_context",
+              "kind": "set",
+              "value": "fan_towels_wall",
+              "raw": "`fan_towels_wall`"
+            },
+            {
+              "field": "scene_anchor",
+              "kind": "set",
+              "value": "hidden_practice_hall",
+              "raw": "`hidden_practice_hall`"
+            },
+            {
+              "field": "danger_level",
+              "kind": "add",
+              "n": 1,
+              "raw": "+1"
+            },
+            {
+              "field": "evidence_found",
+              "kind": "cond",
+              "lead": 1,
+              "raw": "+1 if Yuki photographs the towels"
+            },
+            {
+              "field": "lead_suspicion",
+              "kind": "set",
+              "value": "hidden_training_camp",
+              "raw": "`hidden_training_camp`"
+            },
+            {
+              "field": "entry_method",
+              "kind": "set",
+              "value": "careful_entry",
+              "raw": "`careful_entry`"
+            },
+            {
+              "field": "ritual_hint_level",
+              "kind": "set",
+              "value": "low",
+              "raw": "`low`"
+            }
+          ]
+        },
+        "HIDE": {
+          "id": "R04_HIDE",
+          "intent": "HIDE",
+          "intent_desc": "Use when the user tells Yuki to stay hidden, wait, listen, slip in quietly, avoid being seen, or keep her phone dark.",
+          "template": "i waited\n\nsomeone opened the door from the other side\nso i held my breath and slipped in after them\n\ni'm behind stacked practice mats\n\nthere's a clay ring in here\nsmaller than the real dohyo\n\nand someone is sweeping it like a grave",
+          "fill_guidance": [
+            "Reward stealth with a quiet entry.",
+            "The person who opens the door should remain unidentified.",
+            "Keep Yuki hidden inside the hall.",
+            "\"Like a grave\" is Yuki's fear, not confirmation of the ritual."
+          ],
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "value": "S04_Hidden_Hall",
+              "raw": "`S04_Hidden_Hall`"
+            },
+            {
+              "field": "last_template_id",
+              "kind": "set",
+              "value": "R04_HIDE",
+              "raw": "`R04_HIDE`"
+            },
+            {
+              "field": "last_intent",
+              "kind": "set",
+              "value": "HIDE",
+              "raw": "`HIDE`"
+            },
+            {
+              "field": "hidden_hall_context",
+              "kind": "set",
+              "value": "small_clay_ring",
+              "raw": "`small_clay_ring`"
+            },
+            {
+              "field": "scene_anchor",
+              "kind": "set",
+              "value": "hidden_practice_hall",
+              "raw": "`hidden_practice_hall`"
+            },
+            {
+              "field": "danger_level",
+              "kind": "skip",
+              "raw": "unchanged or -1 if she remains unseen"
+            },
+            {
+              "field": "evidence_found",
+              "kind": "skip",
+              "raw": "unchanged"
+            },
+            {
+              "field": "lead_suspicion",
+              "kind": "set",
+              "value": "hidden_training_camp",
+              "raw": "`hidden_training_camp`"
+            },
+            {
+              "field": "entry_method",
+              "kind": "set",
+              "value": "stealth_entry",
+              "raw": "`stealth_entry`"
+            },
+            {
+              "field": "ritual_hint_level",
+              "kind": "set",
+              "value": "medium",
+              "raw": "`medium`"
+            }
+          ]
+        },
+        "CONFRONT": {
+          "id": "R04_CONFRONT",
+          "intent": "CONFRONT",
+          "intent_desc": "Use when the user tells Yuki to confront someone at the threshold, force an answer, challenge the fixer or staff, shout, threaten, or push through.",
+          "template": "i pushed it\n\nmaybe too hard\n\nthe person on the other side grabbed the door\nand i shoved back before i could think\n\ni'm through\n\nthere's a whole room under here\na practice hall\n\nand the floor is covered in fresh clay footprints",
+          "fill_guidance": [
+            "Let confrontation work, but make it costly and loud.",
+            "Do not let Yuki fight successfully for long.",
+            "The person on the other side can remain unseen or partially described.",
+            "End with the hall discovery, not a capture."
+          ],
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "value": "S04_Hidden_Hall",
+              "raw": "`S04_Hidden_Hall`"
+            },
+            {
+              "field": "last_template_id",
+              "kind": "set",
+              "value": "R04_CONFRONT",
+              "raw": "`R04_CONFRONT`"
+            },
+            {
+              "field": "last_intent",
+              "kind": "set",
+              "value": "CONFRONT",
+              "raw": "`CONFRONT`"
+            },
+            {
+              "field": "hidden_hall_context",
+              "kind": "set",
+              "value": "fresh_clay_footprints",
+              "raw": "`fresh_clay_footprints`"
+            },
+            {
+              "field": "scene_anchor",
+              "kind": "set",
+              "value": "hidden_practice_hall",
+              "raw": "`hidden_practice_hall`"
+            },
+            {
+              "field": "danger_level",
+              "kind": "add",
+              "n": 2,
+              "raw": "+2"
+            },
+            {
+              "field": "evidence_found",
+              "kind": "skip",
+              "raw": "unchanged"
+            },
+            {
+              "field": "lead_suspicion",
+              "kind": "set",
+              "value": "hidden_training_camp",
+              "raw": "`hidden_training_camp`"
+            },
+            {
+              "field": "yuki_has_been_seen",
+              "kind": "set",
+              "value": true,
+              "raw": "true"
+            },
+            {
+              "field": "entry_method",
+              "kind": "set",
+              "value": "forced_entry",
+              "raw": "`forced_entry`"
+            },
+            {
+              "field": "ritual_hint_level",
+              "kind": "set",
+              "value": "low",
+              "raw": "`low`"
+            }
+          ]
+        },
+        "CALL_HELP": {
+          "id": "R04_CALL_HELP",
+          "intent": "CALL_HELP",
+          "intent_desc": "Use when the user tells Yuki to call police, security, emergency services, a friend, arena staff, or another official source before crossing the threshold.",
+          "template": "i'm calling\n\nsignal is awful down here\nbut i got one photo to send\n\nthe door clicked while i was waiting for the call to connect\n\nit opened by itself\n\ni can see inside now\n\nthere's a practice hall under the arena\nand a row of visitor badges hanging from nails",
+          "fill_guidance": [
+            "Official help should create a partial record, not immediate rescue.",
+            "The opening door can feel deliberate, as if someone wants Yuki inside.",
+            "Keep Yuki just inside or at the threshold of the hall if the user strongly emphasized safety.",
+            "Do not reveal the ritual meaning of the visitor badges yet."
+          ],
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "value": "S04_Hidden_Hall",
+              "raw": "`S04_Hidden_Hall`"
+            },
+            {
+              "field": "last_template_id",
+              "kind": "set",
+              "value": "R04_CALL_HELP",
+              "raw": "`R04_CALL_HELP`"
+            },
+            {
+              "field": "last_intent",
+              "kind": "set",
+              "value": "CALL_HELP",
+              "raw": "`CALL_HELP`"
+            },
+            {
+              "field": "hidden_hall_context",
+              "kind": "set",
+              "value": "visitor_badges",
+              "raw": "`visitor_badges`"
+            },
+            {
+              "field": "scene_anchor",
+              "kind": "set",
+              "value": "hidden_practice_hall_threshold",
+              "raw": "`hidden_practice_hall_threshold`"
+            },
+            {
+              "field": "danger_level",
+              "kind": "skip",
+              "raw": "unchanged or +1"
+            },
+            {
+              "field": "evidence_found",
+              "kind": "add",
+              "n": 1,
+              "raw": "+1"
+            },
+            {
+              "field": "official_record_created",
+              "kind": "set",
+              "value": true,
+              "raw": "true"
+            },
+            {
+              "field": "lead_suspicion",
+              "kind": "set",
+              "value": "hidden_training_camp",
+              "raw": "`hidden_training_camp`"
+            },
+            {
+              "field": "entry_method",
+              "kind": "set",
+              "value": "door_opened_from_inside",
+              "raw": "`door_opened_from_inside`"
+            },
+            {
+              "field": "ritual_hint_level",
+              "kind": "set",
+              "value": "low",
+              "raw": "`low`"
+            }
+          ]
+        },
+        "RECORD_EVIDENCE": {
+          "id": "R04_RECORD_EVIDENCE",
+          "intent": "RECORD_EVIDENCE",
+          "intent_desc": "Use when the user tells Yuki to take photos, record audio/video, stream, send proof, share location, or document the threshold before entering.",
+          "template": "recording\n\ni'm filming the door, the lock, the stairs\neverything\n\ni pushed it open with my sleeve\n\nthere's a hidden practice hall down here\n\nmy flash caught something on the wall\n\nold photos of fans\neach one pinned beside a strip of white paper",
+          "fill_guidance": [
+            "Let evidence-gathering shape the scene.",
+            "The photos and paper strips should feel ritual-adjacent but unexplained.",
+            "If `evidence_found` is already high, mention backing up the video or sending a location ping.",
+            "Do not show Kenji's photo yet unless the user specifically asked to search for him, and even then keep it partial."
+          ],
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "value": "S04_Hidden_Hall",
+              "raw": "`S04_Hidden_Hall`"
+            },
+            {
+              "field": "last_template_id",
+              "kind": "set",
+              "value": "R04_RECORD_EVIDENCE",
+              "raw": "`R04_RECORD_EVIDENCE`"
+            },
+            {
+              "field": "last_intent",
+              "kind": "set",
+              "value": "RECORD_EVIDENCE",
+              "raw": "`RECORD_EVIDENCE`"
+            },
+            {
+              "field": "hidden_hall_context",
+              "kind": "set",
+              "value": "fan_photos_prayer_strips",
+              "raw": "`fan_photos_prayer_strips`"
+            },
+            {
+              "field": "scene_anchor",
+              "kind": "set",
+              "value": "hidden_practice_hall",
+              "raw": "`hidden_practice_hall`"
+            },
+            {
+              "field": "danger_level",
+              "kind": "add",
+              "n": 1,
+              "raw": "+1"
+            },
+            {
+              "field": "evidence_found",
+              "kind": "add",
+              "n": 1,
+              "raw": "+1"
+            },
+            {
+              "field": "lead_suspicion",
+              "kind": "set",
+              "value": "hidden_training_camp",
+              "raw": "`hidden_training_camp`"
+            },
+            {
+              "field": "entry_method",
+              "kind": "set",
+              "value": "documented_entry",
+              "raw": "`documented_entry`"
+            },
+            {
+              "field": "ritual_hint_level",
+              "kind": "set",
+              "value": "medium",
+              "raw": "`medium`"
+            }
+          ]
+        },
+        "ESCAPE": {
+          "id": "R04_ESCAPE",
+          "intent": "ESCAPE",
+          "intent_desc": "Use when the user tells Yuki to leave, run, back away, stay safe, avoid going through, or stop investigating.",
+          "template": "i tried\n\ni really tried to go back\n\nthe door to the stairs locked behind me\n\nnot slammed\nlocked\n\nthe only light is coming from the room ahead\n\ni'm staying near the exit\nbut i can see a hidden practice hall inside",
+          "fill_guidance": [
+            "Respect the user's safety-first instruction by having Yuki try to leave.",
+            "Do not punish caution with instant capture.",
+            "Keep Yuki close to the threshold if possible, but still establish the hidden hall.",
+            "The hall discovery can be visual rather than a full entry."
+          ],
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "value": "S04_Hidden_Hall",
+              "raw": "`S04_Hidden_Hall`"
+            },
+            {
+              "field": "last_template_id",
+              "kind": "set",
+              "value": "R04_ESCAPE",
+              "raw": "`R04_ESCAPE`"
+            },
+            {
+              "field": "last_intent",
+              "kind": "set",
+              "value": "ESCAPE",
+              "raw": "`ESCAPE`"
+            },
+            {
+              "field": "hidden_hall_context",
+              "kind": "set",
+              "value": "locked_stair_exit",
+              "raw": "`locked_stair_exit`"
+            },
+            {
+              "field": "scene_anchor",
+              "kind": "set",
+              "value": "hidden_practice_hall_threshold",
+              "raw": "`hidden_practice_hall_threshold`"
+            },
+            {
+              "field": "danger_level",
+              "kind": "skip",
+              "raw": "unchanged or +1"
+            },
+            {
+              "field": "evidence_found",
+              "kind": "skip",
+              "raw": "unchanged"
+            },
+            {
+              "field": "lead_suspicion",
+              "kind": "set",
+              "value": "someone_luring_yuki",
+              "raw": "`someone_luring_yuki`"
+            },
+            {
+              "field": "entry_method",
+              "kind": "set",
+              "value": "blocked_retreat",
+              "raw": "`blocked_retreat`"
+            },
+            {
+              "field": "ritual_hint_level",
+              "kind": "set",
+              "value": "low",
+              "raw": "`low`"
+            }
+          ]
+        },
+        "RESCUE_KENJI": {
+          "id": "R04_RESCUE_KENJI",
+          "intent": "RESCUE_KENJI",
+          "intent_desc": "Use when the user tells Yuki to find Kenji, look for his belongings, follow his trail, call his name, search places someone could be held, or move urgently toward rescue.",
+          "template": "Kenji\n\ni whispered his name when i opened the door\n\nno answer\n\nbut i'm inside\nit's a hidden practice hall\n\nhis blue towel is here\nfolded beside the little clay ring\n\nthere's dirt on it\nfresh",
+          "fill_guidance": [
+            "Center Kenji emotionally.",
+            "Let Yuki find a trace of Kenji, not Kenji himself.",
+            "Do not confirm where Kenji is trapped.",
+            "Keep the trace strong enough for Response 05 to build into the ritual discovery."
+          ],
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "value": "S04_Hidden_Hall",
+              "raw": "`S04_Hidden_Hall`"
+            },
+            {
+              "field": "last_template_id",
+              "kind": "set",
+              "value": "R04_RESCUE_KENJI",
+              "raw": "`R04_RESCUE_KENJI`"
+            },
+            {
+              "field": "last_intent",
+              "kind": "set",
+              "value": "RESCUE_KENJI",
+              "raw": "`RESCUE_KENJI`"
+            },
+            {
+              "field": "hidden_hall_context",
+              "kind": "set",
+              "value": "kenji_towel_near_ring",
+              "raw": "`kenji_towel_near_ring`"
+            },
+            {
+              "field": "scene_anchor",
+              "kind": "set",
+              "value": "hidden_practice_hall",
+              "raw": "`hidden_practice_hall`"
+            },
+            {
+              "field": "danger_level",
+              "kind": "cond",
+              "lead": 1,
+              "raw": "+1 if rushed, unchanged if cautious"
+            },
+            {
+              "field": "evidence_found",
+              "kind": "add",
+              "n": 1,
+              "raw": "+1"
+            },
+            {
+              "field": "lead_suspicion",
+              "kind": "set",
+              "value": "hidden_training_camp",
+              "raw": "`hidden_training_camp`"
+            },
+            {
+              "field": "entry_method",
+              "kind": "set",
+              "value": "rescue_entry",
+              "raw": "`rescue_entry`"
+            },
+            {
+              "field": "kenji_trace_found",
+              "kind": "set",
+              "value": true,
+              "raw": "true"
+            },
+            {
+              "field": "ritual_hint_level",
+              "kind": "set",
+              "value": "medium",
+              "raw": "`medium`"
+            }
+          ]
+        },
+        "OTHER": {
+          "id": "R04_OTHER",
+          "intent": "OTHER",
+          "intent_desc": "Use when the user message is ambiguous, emotional, off-path, meta, joking, contradictory, or does not clearly map to another intent.",
+          "template": "i'm just going to do the least stupid thing\n\nslow\nquiet\none step at a time\n\nthe door opened easier than it should have\n\nthere's a practice hall under here\n\nno windows\nno signs\n\njust a clay ring and a smell like rain on dirt",
+          "fill_guidance": [
+            "Acknowledge emotional support if present.",
+            "If the user message is confusing, choose cautious entry as the default.",
+            "Keep the hall vivid and unsettling.",
+            "Do not break immersion or mention classification."
+          ],
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "value": "S04_Hidden_Hall",
+              "raw": "`S04_Hidden_Hall`"
+            },
+            {
+              "field": "last_template_id",
+              "kind": "set",
+              "value": "R04_OTHER",
+              "raw": "`R04_OTHER`"
+            },
+            {
+              "field": "last_intent",
+              "kind": "set",
+              "value": "OTHER",
+              "raw": "`OTHER`"
+            },
+            {
+              "field": "hidden_hall_context",
+              "kind": "set",
+              "value": "windowless_clay_ring",
+              "raw": "`windowless_clay_ring`"
+            },
+            {
+              "field": "scene_anchor",
+              "kind": "set",
+              "value": "hidden_practice_hall",
+              "raw": "`hidden_practice_hall`"
+            },
+            {
+              "field": "danger_level",
+              "kind": "skip",
+              "raw": "unchanged"
+            },
+            {
+              "field": "evidence_found",
+              "kind": "skip",
+              "raw": "unchanged"
+            },
+            {
+              "field": "lead_suspicion",
+              "kind": "set",
+              "value": "hidden_training_camp",
+              "raw": "`hidden_training_camp`"
+            },
+            {
+              "field": "entry_method",
+              "kind": "set",
+              "value": "cautious_entry",
+              "raw": "`cautious_entry`"
+            },
+            {
+              "field": "ritual_hint_level",
+              "kind": "set",
+              "value": "low",
+              "raw": "`low`"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "n": 5,
+      "from": "S04_Hidden_Hall",
+      "to": "S05_Ura_Reveal",
+      "bubbles": [
+        3,
+        8
+      ],
+      "shared_rules": [
+        "Write only as Yuki texting the user.",
+        "Use short, first-person text messages.",
+        "Keep the tone immediate, frightened, and intimate.",
+        "Refer to `hidden_hall_context` where possible.",
+        "Reveal that Papayasu was a false lead, cover label, or lure.",
+        "Reveal that Ura is behind the scheme.",
+        "Reveal the motive: Ura believes burying devoted sumo fans under the hidden dohyo will preserve his knees and keep him wrestling.",
+        "Confirm that Kenji is beneath or inside the hidden dohyo structure, but do not rescue him yet.",
+        "End with Ura present and Yuki needing one final instruction.",
+        "Do not produce the ending yet.",
+        "Use lowercase casually where it feels natural."
+      ],
+      "available_context": [
+        "Yuki is in the hidden practice hall beneath or inside the Kokugikan.",
+        "The hidden hall contains ritual-adjacent objects: towels, visitor badges, photos, prayer strips, clay, or a small dohyo.",
+        "Kenji is missing and has left traces in the hall.",
+        "Ura is the real antagonist.",
+        "Response 06 will resolve the demo with a unique ending for each final intent."
+      ],
+      "input_fields": [
+        "current_state",
+        "classified_intent",
+        "user_message",
+        "clue_context",
+        "false_lead_context",
+        "threshold_context",
+        "hidden_hall_context",
+        "scene_anchor",
+        "lead_suspicion",
+        "danger_level",
+        "evidence_found",
+        "official_record_created",
+        "yuki_has_been_seen",
+        "access_vector",
+        "papayasu_status",
+        "entry_method",
+        "kenji_trace_found",
+        "ritual_hint_level"
+      ],
+      "templates": {
+        "INVESTIGATE": {
+          "id": "R05_INVESTIGATE",
+          "intent": "INVESTIGATE",
+          "intent_desc": "Use when the user tells Yuki to inspect the hidden hall, examine the dohyo, check the ritual objects, follow marks, or look for the mechanism.",
+          "template": "{{acknowledge_user_plan}}\n\ni lifted the edge of the clay ring\n\nthere's a seam under it\nand a diagram scratched into the wood\n\nknees\nnames\ndates of tournaments\n\nKenji's phone is under the clay\ni can hear it buzzing\n\nthen something tapped back from the same hollow\n\nsomeone behind me just said:\n\"curiosity is hard on the joints, Yuki\"",
+          "fill_guidance": [
+            "`acknowledge_user_plan`: Briefly echo the user's investigative instruction.",
+            "Tie the diagram to Ura's knee-preservation motive.",
+            "Let Ura reveal himself in the final bubble or next-to-final bubble.",
+            "Keep Kenji alive and reachable but not rescued."
+          ],
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "value": "S05_Ura_Reveal",
+              "raw": "`S05_Ura_Reveal`"
+            },
+            {
+              "field": "last_template_id",
+              "kind": "set",
+              "value": "R05_INVESTIGATE",
+              "raw": "`R05_INVESTIGATE`"
+            },
+            {
+              "field": "last_intent",
+              "kind": "set",
+              "value": "INVESTIGATE",
+              "raw": "`INVESTIGATE`"
+            },
+            {
+              "field": "reveal_context",
+              "kind": "set",
+              "value": "ritual_diagram_under_dohyo",
+              "raw": "`ritual_diagram_under_dohyo`"
+            },
+            {
+              "field": "ritual_context",
+              "kind": "set",
+              "value": "knee_preservation_burial",
+              "raw": "`knee_preservation_burial`"
+            },
+            {
+              "field": "ura_entry_context",
+              "kind": "set",
+              "value": "voice_from_behind",
+              "raw": "`voice_from_behind`"
+            },
+            {
+              "field": "kenji_location_known",
+              "kind": "set",
+              "value": true,
+              "raw": "true"
+            },
+            {
+              "field": "danger_level",
+              "kind": "add",
+              "n": 1,
+              "raw": "+1"
+            },
+            {
+              "field": "evidence_found",
+              "kind": "cond",
+              "lead": 1,
+              "raw": "+1 if Yuki photographs the diagram"
+            },
+            {
+              "field": "lead_suspicion",
+              "kind": "set",
+              "value": "ura",
+              "raw": "`ura`"
+            },
+            {
+              "field": "proof_ready",
+              "kind": "cond",
+              "lead": true,
+              "raw": "true if `evidence_found` is already greater than 0"
+            },
+            {
+              "field": "final_lever",
+              "kind": "set",
+              "value": "trapdoor_seam",
+              "raw": "`trapdoor_seam`"
+            },
+            {
+              "field": "ura_has_seen_yuki",
+              "kind": "set",
+              "value": true,
+              "raw": "true"
+            }
+          ]
+        },
+        "HIDE": {
+          "id": "R05_HIDE",
+          "intent": "HIDE",
+          "intent_desc": "Use when the user tells Yuki to hide, stay silent, listen, keep the phone dark, avoid being seen, or wait.",
+          "template": "i'm hidden behind the mats\n\nsomeone came in\nlimping\n\ni know his face\nit's Ura\n\nhe's talking to the clay like it's alive\n\nhe said Kenji is \"almost ready\"\nand that a fan's devotion can hold a knee together\n\nthen he tapped the clay with his cane\nand someone under it answered\n\nhe just stopped talking\ni think he saw my screen",
+          "fill_guidance": [
+            "Reward hiding with overheard confession.",
+            "Keep Ura frightening but calm.",
+            "Use a limp or knee brace detail.",
+            "End with stealth breaking or almost breaking."
+          ],
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "value": "S05_Ura_Reveal",
+              "raw": "`S05_Ura_Reveal`"
+            },
+            {
+              "field": "last_template_id",
+              "kind": "set",
+              "value": "R05_HIDE",
+              "raw": "`R05_HIDE`"
+            },
+            {
+              "field": "last_intent",
+              "kind": "set",
+              "value": "HIDE",
+              "raw": "`HIDE`"
+            },
+            {
+              "field": "reveal_context",
+              "kind": "set",
+              "value": "overheard_ura_confession",
+              "raw": "`overheard_ura_confession`"
+            },
+            {
+              "field": "ritual_context",
+              "kind": "set",
+              "value": "fan_devotion_for_knees",
+              "raw": "`fan_devotion_for_knees`"
+            },
+            {
+              "field": "ura_entry_context",
+              "kind": "set",
+              "value": "limping_into_hall",
+              "raw": "`limping_into_hall`"
+            },
+            {
+              "field": "kenji_location_known",
+              "kind": "set",
+              "value": true,
+              "raw": "true"
+            },
+            {
+              "field": "danger_level",
+              "kind": "skip",
+              "raw": "unchanged or +1"
+            },
+            {
+              "field": "evidence_found",
+              "kind": "skip",
+              "raw": "unchanged"
+            },
+            {
+              "field": "lead_suspicion",
+              "kind": "set",
+              "value": "ura",
+              "raw": "`ura`"
+            },
+            {
+              "field": "proof_ready",
+              "kind": "cond",
+              "lead": true,
+              "raw": "true if Yuki is recording or `evidence_found` is high"
+            },
+            {
+              "field": "final_lever",
+              "kind": "set",
+              "value": "dark_hiding_place",
+              "raw": "`dark_hiding_place`"
+            },
+            {
+              "field": "escape_route_known",
+              "kind": "cond",
+              "lead": true,
+              "raw": "true if `entry_method` was `stealth_entry`"
+            },
+            {
+              "field": "ura_has_seen_yuki",
+              "kind": "cond",
+              "raw": "conditional; true if danger is high or the generated text makes him notice her"
+            }
+          ]
+        },
+        "CONFRONT": {
+          "id": "R05_CONFRONT",
+          "intent": "CONFRONT",
+          "intent_desc": "Use when the user tells Yuki to confront, accuse, challenge, shout at, threaten, or demand answers from someone in the hidden hall.",
+          "template": "i said Papayasu was a lie\n\ni said whoever did this should come out\n\nsomeone laughed from the doorway\n\nUra\n\nhe said Papayasu is just a word for people who need a smaller monster\n\nthen he tapped his knee and said:\n\"this is what monsters are for\"\n\nKenji is under the ring",
+          "fill_guidance": [
+            "Let Yuki's confrontation force a direct reveal.",
+            "Ura should dismiss Papayasu as a cover.",
+            "Do not turn the scene into a physical fight yet.",
+            "End with Kenji's location known."
+          ],
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "value": "S05_Ura_Reveal",
+              "raw": "`S05_Ura_Reveal`"
+            },
+            {
+              "field": "last_template_id",
+              "kind": "set",
+              "value": "R05_CONFRONT",
+              "raw": "`R05_CONFRONT`"
+            },
+            {
+              "field": "last_intent",
+              "kind": "set",
+              "value": "CONFRONT",
+              "raw": "`CONFRONT`"
+            },
+            {
+              "field": "reveal_context",
+              "kind": "set",
+              "value": "ura_answers_accusation",
+              "raw": "`ura_answers_accusation`"
+            },
+            {
+              "field": "ritual_context",
+              "kind": "set",
+              "value": "monster_for_knees",
+              "raw": "`monster_for_knees`"
+            },
+            {
+              "field": "ura_entry_context",
+              "kind": "set",
+              "value": "doorway_laugh",
+              "raw": "`doorway_laugh`"
+            },
+            {
+              "field": "kenji_location_known",
+              "kind": "set",
+              "value": true,
+              "raw": "true"
+            },
+            {
+              "field": "danger_level",
+              "kind": "add",
+              "n": 2,
+              "raw": "+2"
+            },
+            {
+              "field": "evidence_found",
+              "kind": "skip",
+              "raw": "unchanged"
+            },
+            {
+              "field": "lead_suspicion",
+              "kind": "set",
+              "value": "ura",
+              "raw": "`ura`"
+            },
+            {
+              "field": "proof_ready",
+              "kind": "cond",
+              "lead": false,
+              "raw": "false unless prior evidence is strong"
+            },
+            {
+              "field": "final_lever",
+              "kind": "set",
+              "value": "ura_pride",
+              "raw": "`ura_pride`"
+            },
+            {
+              "field": "yuki_has_been_seen",
+              "kind": "set",
+              "value": true,
+              "raw": "true"
+            },
+            {
+              "field": "ura_has_seen_yuki",
+              "kind": "set",
+              "value": true,
+              "raw": "true"
+            }
+          ]
+        },
+        "CALL_HELP": {
+          "id": "R05_CALL_HELP",
+          "intent": "CALL_HELP",
+          "intent_desc": "Use when the user tells Yuki to call police, security, emergency services, a friend, arena staff, or another official source from inside the hidden hall.",
+          "template": "i tried calling\n\nthe signal came back for maybe two seconds\ni sent the photo and my location\n\nthen the call cut\n\nUra stepped out from behind the little ring\n\nhe said:\n\"help is always late under sacred clay\"\n\nand then Kenji knocked from below my feet",
+          "fill_guidance": [
+            "Official help should matter by creating a record or transmitting proof.",
+            "Ura should appear because Yuki's call changes the pressure.",
+            "Kenji's knock confirms location.",
+            "Do not have help arrive yet."
+          ],
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "value": "S05_Ura_Reveal",
+              "raw": "`S05_Ura_Reveal`"
+            },
+            {
+              "field": "last_template_id",
+              "kind": "set",
+              "value": "R05_CALL_HELP",
+              "raw": "`R05_CALL_HELP`"
+            },
+            {
+              "field": "last_intent",
+              "kind": "set",
+              "value": "CALL_HELP",
+              "raw": "`CALL_HELP`"
+            },
+            {
+              "field": "reveal_context",
+              "kind": "set",
+              "value": "call_triggers_ura",
+              "raw": "`call_triggers_ura`"
+            },
+            {
+              "field": "ritual_context",
+              "kind": "set",
+              "value": "sacred_clay_burial",
+              "raw": "`sacred_clay_burial`"
+            },
+            {
+              "field": "ura_entry_context",
+              "kind": "set",
+              "value": "from_behind_ring",
+              "raw": "`from_behind_ring`"
+            },
+            {
+              "field": "kenji_location_known",
+              "kind": "set",
+              "value": true,
+              "raw": "true"
+            },
+            {
+              "field": "danger_level",
+              "kind": "add",
+              "n": 1,
+              "raw": "+1"
+            },
+            {
+              "field": "evidence_found",
+              "kind": "cond",
+              "lead": 1,
+              "raw": "+1 if proof transmits"
+            },
+            {
+              "field": "official_record_created",
+              "kind": "set",
+              "value": true,
+              "raw": "true"
+            },
+            {
+              "field": "lead_suspicion",
+              "kind": "set",
+              "value": "ura",
+              "raw": "`ura`"
+            },
+            {
+              "field": "proof_ready",
+              "kind": "set",
+              "value": true,
+              "raw": "true"
+            },
+            {
+              "field": "final_lever",
+              "kind": "set",
+              "value": "incoming_help",
+              "raw": "`incoming_help`"
+            },
+            {
+              "field": "ura_has_seen_yuki",
+              "kind": "set",
+              "value": true,
+              "raw": "true"
+            }
+          ]
+        },
+        "RECORD_EVIDENCE": {
+          "id": "R05_RECORD_EVIDENCE",
+          "intent": "RECORD_EVIDENCE",
+          "intent_desc": "Use when the user tells Yuki to record audio/video, take photos, stream, send proof, document the hall, or preserve evidence.",
+          "template": "recording\n\ni have the ring\nthe photos\nthe names\n\nand now i have his voice\n\nUra just walked into frame\n\nhe saw the red recording dot and smiled\n\nhe said:\n\"good. let them know my knees were worth worshipping\"\n\nKenji is under the clay",
+          "fill_guidance": [
+            "Let evidence-gathering create a strong proof state.",
+            "Ura can be vain enough to allow or invite recording.",
+            "Keep Yuki scared and practical.",
+            "End with Kenji's location known and the final moment unresolved."
+          ],
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "value": "S05_Ura_Reveal",
+              "raw": "`S05_Ura_Reveal`"
+            },
+            {
+              "field": "last_template_id",
+              "kind": "set",
+              "value": "R05_RECORD_EVIDENCE",
+              "raw": "`R05_RECORD_EVIDENCE`"
+            },
+            {
+              "field": "last_intent",
+              "kind": "set",
+              "value": "RECORD_EVIDENCE",
+              "raw": "`RECORD_EVIDENCE`"
+            },
+            {
+              "field": "reveal_context",
+              "kind": "set",
+              "value": "ura_on_recording",
+              "raw": "`ura_on_recording`"
+            },
+            {
+              "field": "ritual_context",
+              "kind": "set",
+              "value": "knees_worth_worshipping",
+              "raw": "`knees_worth_worshipping`"
+            },
+            {
+              "field": "ura_entry_context",
+              "kind": "set",
+              "value": "walks_into_frame",
+              "raw": "`walks_into_frame`"
+            },
+            {
+              "field": "kenji_location_known",
+              "kind": "set",
+              "value": true,
+              "raw": "true"
+            },
+            {
+              "field": "danger_level",
+              "kind": "add",
+              "n": 1,
+              "raw": "+1"
+            },
+            {
+              "field": "evidence_found",
+              "kind": "add",
+              "n": 1,
+              "raw": "+1"
+            },
+            {
+              "field": "lead_suspicion",
+              "kind": "set",
+              "value": "ura",
+              "raw": "`ura`"
+            },
+            {
+              "field": "proof_ready",
+              "kind": "set",
+              "value": true,
+              "raw": "true"
+            },
+            {
+              "field": "final_lever",
+              "kind": "set",
+              "value": "live_recording",
+              "raw": "`live_recording`"
+            },
+            {
+              "field": "ura_has_seen_yuki",
+              "kind": "set",
+              "value": true,
+              "raw": "true"
+            }
+          ]
+        },
+        "ESCAPE": {
+          "id": "R05_ESCAPE",
+          "intent": "ESCAPE",
+          "intent_desc": "Use when the user tells Yuki to leave, run, back out, stay safe, avoid Ura, or escape the hidden hall.",
+          "template": "i turned back\n\nthe stair door is open now\nit wasn't before\n\ni thought that meant i could leave\n\nUra was standing on the first step\n\nhe said:\n\"offerings don't leave before the clay accepts them\"\n\nthen Kenji screamed from under the little dohyo",
+          "fill_guidance": [
+            "Respect the user's escape instruction by having Yuki try.",
+            "Use Ura as the thing blocking the route.",
+            "Confirm Kenji's location through sound, not rescue.",
+            "End with one last need for user guidance."
+          ],
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "value": "S05_Ura_Reveal",
+              "raw": "`S05_Ura_Reveal`"
+            },
+            {
+              "field": "last_template_id",
+              "kind": "set",
+              "value": "R05_ESCAPE",
+              "raw": "`R05_ESCAPE`"
+            },
+            {
+              "field": "last_intent",
+              "kind": "set",
+              "value": "ESCAPE",
+              "raw": "`ESCAPE`"
+            },
+            {
+              "field": "reveal_context",
+              "kind": "set",
+              "value": "ura_blocks_exit",
+              "raw": "`ura_blocks_exit`"
+            },
+            {
+              "field": "ritual_context",
+              "kind": "set",
+              "value": "offerings_under_clay",
+              "raw": "`offerings_under_clay`"
+            },
+            {
+              "field": "ura_entry_context",
+              "kind": "set",
+              "value": "stairwell_block",
+              "raw": "`stairwell_block`"
+            },
+            {
+              "field": "kenji_location_known",
+              "kind": "set",
+              "value": true,
+              "raw": "true"
+            },
+            {
+              "field": "danger_level",
+              "kind": "add",
+              "n": 1,
+              "raw": "+1"
+            },
+            {
+              "field": "evidence_found",
+              "kind": "skip",
+              "raw": "unchanged"
+            },
+            {
+              "field": "lead_suspicion",
+              "kind": "set",
+              "value": "ura",
+              "raw": "`ura`"
+            },
+            {
+              "field": "proof_ready",
+              "kind": "cond",
+              "lead": true,
+              "raw": "true if prior evidence is strong"
+            },
+            {
+              "field": "final_lever",
+              "kind": "set",
+              "value": "open_stair_door",
+              "raw": "`open_stair_door`"
+            },
+            {
+              "field": "escape_route_known",
+              "kind": "set",
+              "value": true,
+              "raw": "true"
+            },
+            {
+              "field": "ura_has_seen_yuki",
+              "kind": "set",
+              "value": true,
+              "raw": "true"
+            }
+          ]
+        },
+        "RESCUE_KENJI": {
+          "id": "R05_RESCUE_KENJI",
+          "intent": "RESCUE_KENJI",
+          "intent_desc": "Use when the user tells Yuki to find Kenji, dig, pry open the ring, call his name, follow his sound, or rescue him immediately.",
+          "template": "i found him\n\nnot all the way\nbut i found him\n\nthere's a hollow under the little dohyo\nKenji tapped back when i said his name\n\ni started pulling clay away\n\nthen a hand closed around my wrist\n\nUra said:\n\"careful. he isn't buried deep enough yet\"",
+          "fill_guidance": [
+            "Center Kenji and make the rescue attempt emotionally strong.",
+            "Confirm Kenji is alive and under the dohyo.",
+            "Ura catches or interrupts the attempt.",
+            "Do not let Yuki free Kenji yet."
+          ],
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "value": "S05_Ura_Reveal",
+              "raw": "`S05_Ura_Reveal`"
+            },
+            {
+              "field": "last_template_id",
+              "kind": "set",
+              "value": "R05_RESCUE_KENJI",
+              "raw": "`R05_RESCUE_KENJI`"
+            },
+            {
+              "field": "last_intent",
+              "kind": "set",
+              "value": "RESCUE_KENJI",
+              "raw": "`RESCUE_KENJI`"
+            },
+            {
+              "field": "reveal_context",
+              "kind": "set",
+              "value": "kenji_taps_under_dohyo",
+              "raw": "`kenji_taps_under_dohyo`"
+            },
+            {
+              "field": "ritual_context",
+              "kind": "set",
+              "value": "not_buried_deep_enough",
+              "raw": "`not_buried_deep_enough`"
+            },
+            {
+              "field": "ura_entry_context",
+              "kind": "set",
+              "value": "grabs_yuki_wrist",
+              "raw": "`grabs_yuki_wrist`"
+            },
+            {
+              "field": "kenji_location_known",
+              "kind": "set",
+              "value": true,
+              "raw": "true"
+            },
+            {
+              "field": "danger_level",
+              "kind": "add",
+              "n": 2,
+              "raw": "+2"
+            },
+            {
+              "field": "evidence_found",
+              "kind": "skip",
+              "raw": "unchanged"
+            },
+            {
+              "field": "lead_suspicion",
+              "kind": "set",
+              "value": "ura",
+              "raw": "`ura`"
+            },
+            {
+              "field": "proof_ready",
+              "kind": "cond",
+              "lead": true,
+              "raw": "true if prior evidence is strong"
+            },
+            {
+              "field": "final_lever",
+              "kind": "set",
+              "value": "loosened_clay",
+              "raw": "`loosened_clay`"
+            },
+            {
+              "field": "kenji_trace_found",
+              "kind": "set",
+              "value": true,
+              "raw": "true"
+            },
+            {
+              "field": "ura_has_seen_yuki",
+              "kind": "set",
+              "value": true,
+              "raw": "true"
+            }
+          ]
+        },
+        "OTHER": {
+          "id": "R05_OTHER",
+          "intent": "OTHER",
+          "intent_desc": "Use when the user message is ambiguous, emotional, off-path, meta, joking, contradictory, or does not clearly map to another intent.",
+          "template": "i don't know what to do\n\nthe little ring just shifted\nlike something underneath moved\n\nthere are knee braces hanging on the wall\nall signed by Ura\n\nwait\n\nhe's here\n\nhe said Papayasu was a doorbell\nand i rang it perfectly\n\nKenji is under the clay",
+          "fill_guidance": [
+            "If the user message is confusing, let the scene itself force the reveal.",
+            "Keep Papayasu as the lure or cover.",
+            "Make Ura's entrance clear.",
+            "End with Kenji's location known."
+          ],
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "value": "S05_Ura_Reveal",
+              "raw": "`S05_Ura_Reveal`"
+            },
+            {
+              "field": "last_template_id",
+              "kind": "set",
+              "value": "R05_OTHER",
+              "raw": "`R05_OTHER`"
+            },
+            {
+              "field": "last_intent",
+              "kind": "set",
+              "value": "OTHER",
+              "raw": "`OTHER`"
+            },
+            {
+              "field": "reveal_context",
+              "kind": "set",
+              "value": "scene_forces_reveal",
+              "raw": "`scene_forces_reveal`"
+            },
+            {
+              "field": "ritual_context",
+              "kind": "set",
+              "value": "signed_knee_braces",
+              "raw": "`signed_knee_braces`"
+            },
+            {
+              "field": "ura_entry_context",
+              "kind": "set",
+              "value": "papayasu_doorbell",
+              "raw": "`papayasu_doorbell`"
+            },
+            {
+              "field": "kenji_location_known",
+              "kind": "set",
+              "value": true,
+              "raw": "true"
+            },
+            {
+              "field": "danger_level",
+              "kind": "add",
+              "n": 1,
+              "raw": "+1"
+            },
+            {
+              "field": "evidence_found",
+              "kind": "skip",
+              "raw": "unchanged"
+            },
+            {
+              "field": "lead_suspicion",
+              "kind": "set",
+              "value": "ura",
+              "raw": "`ura`"
+            },
+            {
+              "field": "proof_ready",
+              "kind": "cond",
+              "lead": true,
+              "raw": "true if prior evidence is strong"
+            },
+            {
+              "field": "final_lever",
+              "kind": "set",
+              "value": "unstable_ring",
+              "raw": "`unstable_ring`"
+            },
+            {
+              "field": "ura_has_seen_yuki",
+              "kind": "set",
+              "value": true,
+              "raw": "true"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "n": 6,
+      "from": "S05_Ura_Reveal",
+      "to": "S06_Ending",
+      "bubbles": [
+        4,
+        10
+      ],
+      "shared_rules": [
+        "End the demo.",
+        "Use the classified final intent as the only template selector.",
+        "Keep the ending in text-message format.",
+        "Do not introduce a new suspect.",
+        "Do not undo the Ura reveal.",
+        "Each intent must produce a distinct ending route, not a generic good/mixed/bad reuse.",
+        "Use prior state to add flavor, but do not change which ending route was selected.",
+        "Use lowercase casually where it feels natural."
+      ],
+      "available_context": [],
+      "input_fields": [
+        "current_state",
+        "classified_intent",
+        "user_message",
+        "clue_context",
+        "false_lead_context",
+        "threshold_context",
+        "hidden_hall_context",
+        "reveal_context",
+        "ritual_context",
+        "ura_entry_context",
+        "scene_anchor",
+        "danger_level",
+        "evidence_found",
+        "official_record_created",
+        "yuki_has_been_seen",
+        "proof_ready",
+        "final_lever",
+        "escape_route_known",
+        "ura_has_seen_yuki",
+        "kenji_location_known"
+      ],
+      "templates": {
+        "INVESTIGATE": {
+          "id": "R06_INVESTIGATE",
+          "intent": "INVESTIGATE",
+          "intent_desc": "Use when the final user message tells Yuki to inspect the mechanism, use the diagram, find a release, understand the ring, or look for the smartest way out.",
+          "template": "you were right\n\nthe diagram wasn't just ritual\nit was instructions\n\ni pressed the knee marks in order\n\nthe whole clay ring unlocked\n\nKenji's hand came through first\nthen his face\n\nUra tried to grab me\nbut the service panel under his bad knee gave way instead\n\nwe're running\nwe're both running",
+          "fill_guidance": [
+            "Make investigation pay off directly.",
+            "Use `final_lever` if it was `trapdoor_seam`, `unstable_ring`, or `loosened_clay`.",
+            "Keep the ending fast and breathless.",
+            "Ura can fall, be trapped, or be delayed; do not dwell on gore."
+          ],
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "value": "S06_Ending",
+              "raw": "`S06_Ending`"
+            },
+            {
+              "field": "last_template_id",
+              "kind": "set",
+              "value": "R06_INVESTIGATE",
+              "raw": "`R06_INVESTIGATE`"
+            },
+            {
+              "field": "last_intent",
+              "kind": "set",
+              "value": "INVESTIGATE",
+              "raw": "`INVESTIGATE`"
+            },
+            {
+              "field": "ending_route",
+              "kind": "set",
+              "value": "diagram_release_rescue",
+              "raw": "`diagram_release_rescue`"
+            },
+            {
+              "field": "ending_type",
+              "kind": "set",
+              "value": "good",
+              "raw": "`good`"
+            },
+            {
+              "field": "kenji_rescued",
+              "kind": "set",
+              "value": true,
+              "raw": "true"
+            },
+            {
+              "field": "yuki_status",
+              "kind": "set",
+              "value": "escaped_with_kenji",
+              "raw": "`escaped_with_kenji`"
+            },
+            {
+              "field": "ura_status",
+              "kind": "set",
+              "value": "trapped_or_delayed",
+              "raw": "`trapped_or_delayed`"
+            },
+            {
+              "field": "evidence_status",
+              "kind": "skip",
+              "raw": "preserve prior proof state"
+            }
+          ]
+        },
+        "HIDE": {
+          "id": "R06_HIDE",
+          "intent": "HIDE",
+          "intent_desc": "Use when the final user message tells Yuki to hide, stay quiet, wait for an opening, avoid Ura, keep the phone dark, or move silently.",
+          "template": "i went dark\n\nscreen off\nbreath held\n\nUra walked right past me toward the door\n\ni waited until his limp faded up the stairs\n\nthen i used the side panel he left open\nand pulled Kenji out\n\nhe's alive\nhe can't stand yet but he's alive\n\nUra is gone\nand he took the prayer strips with him",
+          "fill_guidance": [
+            "Make stealth succeed, but leave Ura at large.",
+            "If `escape_route_known` is true, use it.",
+            "Keep this distinct from the investigation ending: no mechanism puzzle, more patience and timing."
+          ],
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "value": "S06_Ending",
+              "raw": "`S06_Ending`"
+            },
+            {
+              "field": "last_template_id",
+              "kind": "set",
+              "value": "R06_HIDE",
+              "raw": "`R06_HIDE`"
+            },
+            {
+              "field": "last_intent",
+              "kind": "set",
+              "value": "HIDE",
+              "raw": "`HIDE`"
+            },
+            {
+              "field": "ending_route",
+              "kind": "set",
+              "value": "silent_rescue_ura_vanishes",
+              "raw": "`silent_rescue_ura_vanishes`"
+            },
+            {
+              "field": "ending_type",
+              "kind": "set",
+              "value": "mixed",
+              "raw": "`mixed`"
+            },
+            {
+              "field": "kenji_rescued",
+              "kind": "set",
+              "value": true,
+              "raw": "true"
+            },
+            {
+              "field": "yuki_status",
+              "kind": "set",
+              "value": "hidden_escape_with_kenji",
+              "raw": "`hidden_escape_with_kenji`"
+            },
+            {
+              "field": "ura_status",
+              "kind": "set",
+              "value": "escaped",
+              "raw": "`escaped`"
+            },
+            {
+              "field": "evidence_status",
+              "kind": "skip",
+              "raw": "preserve prior proof state"
+            }
+          ]
+        },
+        "CONFRONT": {
+          "id": "R06_CONFRONT",
+          "intent": "CONFRONT",
+          "intent_desc": "Use when the final user message tells Yuki to confront Ura, attack, accuse him, threaten him, shout, or stand her ground.",
+          "template": "i told him everyone would know\n\ni told him Kenji wasn't his offering\n\nUra stopped smiling\n\nhe moved so fast for someone limping\n\nmy phone hit the clay\n\nif this sends\nplease\n\nplease tell someone the ring opens from under the west side\n\n...\n\nhello?",
+          "fill_guidance": [
+            "Make confrontation brave but dangerous.",
+            "The final \"hello?\" may imply someone else has picked up the phone.",
+            "Do not give a clean rescue.",
+            "Keep it scary, not graphically violent."
+          ],
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "value": "S06_Ending",
+              "raw": "`S06_Ending`"
+            },
+            {
+              "field": "last_template_id",
+              "kind": "set",
+              "value": "R06_CONFRONT",
+              "raw": "`R06_CONFRONT`"
+            },
+            {
+              "field": "last_intent",
+              "kind": "set",
+              "value": "CONFRONT",
+              "raw": "`CONFRONT`"
+            },
+            {
+              "field": "ending_route",
+              "kind": "set",
+              "value": "phone_taken_cliffhanger",
+              "raw": "`phone_taken_cliffhanger`"
+            },
+            {
+              "field": "ending_type",
+              "kind": "set",
+              "value": "bad_cliffhanger",
+              "raw": "`bad_cliffhanger`"
+            },
+            {
+              "field": "kenji_rescued",
+              "kind": "set",
+              "value": false,
+              "raw": "false"
+            },
+            {
+              "field": "yuki_status",
+              "kind": "set",
+              "value": "caught_or_phone_lost",
+              "raw": "`caught_or_phone_lost`"
+            },
+            {
+              "field": "ura_status",
+              "kind": "set",
+              "value": "active",
+              "raw": "`active`"
+            },
+            {
+              "field": "evidence_status",
+              "kind": "set2",
+              "a": "partial_clue_sent",
+              "b": "uncertain",
+              "raw": "`partial_clue_sent` if prior proof exists, otherwise `uncertain`"
+            }
+          ]
+        },
+        "CALL_HELP": {
+          "id": "R06_CALL_HELP",
+          "intent": "CALL_HELP",
+          "intent_desc": "Use when the final user message tells Yuki to call police, security, emergency services, friends, arena staff, or anyone outside the hall.",
+          "template": "i hit call again\nspeaker on\n\nthen i screamed the address\nthe basement\nUra's name\n\nhe lunged at me\n\nbut the emergency alarm started upstairs\n\nsomeone heard\nsomeone actually heard\n\nsecurity broke the door open while i was pulling Kenji out\n\nthey have Ura on the floor\nthey have him",
+          "fill_guidance": [
+            "Reward help-seeking, especially if `official_record_created` is true.",
+            "If prior proof exists, mention the photo/video helped responders believe her.",
+            "Keep the ending urgent and concrete."
+          ],
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "value": "S06_Ending",
+              "raw": "`S06_Ending`"
+            },
+            {
+              "field": "last_template_id",
+              "kind": "set",
+              "value": "R06_CALL_HELP",
+              "raw": "`R06_CALL_HELP`"
+            },
+            {
+              "field": "last_intent",
+              "kind": "set",
+              "value": "CALL_HELP",
+              "raw": "`CALL_HELP`"
+            },
+            {
+              "field": "ending_route",
+              "kind": "set",
+              "value": "official_intervention_rescue",
+              "raw": "`official_intervention_rescue`"
+            },
+            {
+              "field": "ending_type",
+              "kind": "set",
+              "value": "good",
+              "raw": "`good`"
+            },
+            {
+              "field": "kenji_rescued",
+              "kind": "set",
+              "value": true,
+              "raw": "true"
+            },
+            {
+              "field": "yuki_status",
+              "kind": "set",
+              "value": "rescued_by_responders",
+              "raw": "`rescued_by_responders`"
+            },
+            {
+              "field": "ura_status",
+              "kind": "set",
+              "value": "detained",
+              "raw": "`detained`"
+            },
+            {
+              "field": "evidence_status",
+              "kind": "set",
+              "value": "official_record",
+              "raw": "`official_record`"
+            }
+          ]
+        },
+        "RECORD_EVIDENCE": {
+          "id": "R06_RECORD_EVIDENCE",
+          "intent": "RECORD_EVIDENCE",
+          "intent_desc": "Use when the final user message tells Yuki to record, stream, send proof, keep the camera on, expose Ura, or preserve evidence.",
+          "template": "i kept recording\n\ni said Ura's name\nKenji's name\nthe ring\n\nthen i sent the live link to security\nand the fan group\n\nwhen Ura came closer, i slid the phone under the door\n\nit kept streaming from the hallway\n\nby the time he realized, voices were coming down the stairs\n\nKenji is out\nand the video is everywhere",
+          "fill_guidance": [
+            "Make evidence the weapon.",
+            "If `proof_ready` is true, lean into livestream or auto-upload.",
+            "This ending exposes the ritual publicly, distinct from official intervention.",
+            "Keep the focus on Yuki's quick thinking."
+          ],
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "value": "S06_Ending",
+              "raw": "`S06_Ending`"
+            },
+            {
+              "field": "last_template_id",
+              "kind": "set",
+              "value": "R06_RECORD_EVIDENCE",
+              "raw": "`R06_RECORD_EVIDENCE`"
+            },
+            {
+              "field": "last_intent",
+              "kind": "set",
+              "value": "RECORD_EVIDENCE",
+              "raw": "`RECORD_EVIDENCE`"
+            },
+            {
+              "field": "ending_route",
+              "kind": "set",
+              "value": "evidence_broadcast_exposure",
+              "raw": "`evidence_broadcast_exposure`"
+            },
+            {
+              "field": "ending_type",
+              "kind": "set",
+              "value": "good_exposure",
+              "raw": "`good_exposure`"
+            },
+            {
+              "field": "kenji_rescued",
+              "kind": "set",
+              "value": true,
+              "raw": "true"
+            },
+            {
+              "field": "yuki_status",
+              "kind": "set",
+              "value": "escaped_after_exposure",
+              "raw": "`escaped_after_exposure`"
+            },
+            {
+              "field": "ura_status",
+              "kind": "set",
+              "value": "publicly_exposed",
+              "raw": "`publicly_exposed`"
+            },
+            {
+              "field": "evidence_status",
+              "kind": "set",
+              "value": "broadcast",
+              "raw": "`broadcast`"
+            }
+          ]
+        },
+        "ESCAPE": {
+          "id": "R06_ESCAPE",
+          "intent": "ESCAPE",
+          "intent_desc": "Use when the final user message tells Yuki to run, leave, escape, get out alive, avoid Ura, or prioritize survival.",
+          "template": "i ran\n\ni hate typing that\nbut i ran\n\nUra followed the sound of my footsteps\nso i threw my keys the other way\n\ni got through the stair door\n\ni'm outside\ni'm shaking so hard i can't breathe\n\ni still have the location\nand enough proof\nand i know where Kenji is\n\ni'm not leaving him\nbut i need help now",
+          "fill_guidance": [
+            "Respect survival-first play.",
+            "This is a mixed sequel-hook ending: Yuki escapes with proof and location, but Kenji is not yet rescued on-screen.",
+            "If `official_record_created` or `proof_ready` is true, mention she is sending everything now."
+          ],
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "value": "S06_Ending",
+              "raw": "`S06_Ending`"
+            },
+            {
+              "field": "last_template_id",
+              "kind": "set",
+              "value": "R06_ESCAPE",
+              "raw": "`R06_ESCAPE`"
+            },
+            {
+              "field": "last_intent",
+              "kind": "set",
+              "value": "ESCAPE",
+              "raw": "`ESCAPE`"
+            },
+            {
+              "field": "ending_route",
+              "kind": "set",
+              "value": "escape_with_proof_unresolved",
+              "raw": "`escape_with_proof_unresolved`"
+            },
+            {
+              "field": "ending_type",
+              "kind": "set",
+              "value": "mixed_sequel_hook",
+              "raw": "`mixed_sequel_hook`"
+            },
+            {
+              "field": "kenji_rescued",
+              "kind": "set",
+              "value": false,
+              "raw": "false"
+            },
+            {
+              "field": "yuki_status",
+              "kind": "set",
+              "value": "escaped_with_proof",
+              "raw": "`escaped_with_proof`"
+            },
+            {
+              "field": "ura_status",
+              "kind": "set",
+              "value": "still_inside",
+              "raw": "`still_inside`"
+            },
+            {
+              "field": "evidence_status",
+              "kind": "set",
+              "value": "actionable_proof",
+              "raw": "`actionable_proof`"
+            }
+          ]
+        },
+        "RESCUE_KENJI": {
+          "id": "R06_RESCUE_KENJI",
+          "intent": "RESCUE_KENJI",
+          "intent_desc": "Use when the final user message tells Yuki to free Kenji, dig him out, open the dohyo, pull him up, cut restraints, or prioritize rescue over everything else.",
+          "template": "i went for Kenji\n\nno more clues\nno more running\n\ni dug my fingers into the seam and pulled until my nails tore\n\nhe pushed from underneath\n\nthe clay cracked\n\nUra grabbed my jacket\nbut Kenji came up swinging the broken prayer board\n\nwe knocked him into the ring\n\nKenji is crying\ni'm crying\nwe're getting out",
+          "fill_guidance": [
+            "Make this the most emotionally direct rescue ending.",
+            "It can be messy and costly, but Kenji gets out.",
+            "If `final_lever` is `loosened_clay`, use that detail.",
+            "Keep violence minimal and cinematic."
+          ],
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "value": "S06_Ending",
+              "raw": "`S06_Ending`"
+            },
+            {
+              "field": "last_template_id",
+              "kind": "set",
+              "value": "R06_RESCUE_KENJI",
+              "raw": "`R06_RESCUE_KENJI`"
+            },
+            {
+              "field": "last_intent",
+              "kind": "set",
+              "value": "RESCUE_KENJI",
+              "raw": "`RESCUE_KENJI`"
+            },
+            {
+              "field": "ending_route",
+              "kind": "set",
+              "value": "kenji_pulled_free",
+              "raw": "`kenji_pulled_free`"
+            },
+            {
+              "field": "ending_type",
+              "kind": "set",
+              "value": "good_costly",
+              "raw": "`good_costly`"
+            },
+            {
+              "field": "kenji_rescued",
+              "kind": "set",
+              "value": true,
+              "raw": "true"
+            },
+            {
+              "field": "yuki_status",
+              "kind": "set",
+              "value": "escaped_with_kenji_injured",
+              "raw": "`escaped_with_kenji_injured`"
+            },
+            {
+              "field": "ura_status",
+              "kind": "set",
+              "value": "knocked_down_or_delayed",
+              "raw": "`knocked_down_or_delayed`"
+            },
+            {
+              "field": "evidence_status",
+              "kind": "skip",
+              "raw": "preserve prior proof state"
+            }
+          ]
+        },
+        "OTHER": {
+          "id": "R06_OTHER",
+          "intent": "OTHER",
+          "intent_desc": "Use when the final user message is ambiguous, emotional, off-path, meta, joking, contradictory, or does not clearly map to another intent.",
+          "template": "i'm sorry\n\ni waited too long\n\nUra is standing between me and the ring\n\nhe has my phone light on his face\n\nhe asked who i've been texting\n\n...\n\nthis is Ura\n\nYuki is busy\n\nwould you like to help with the next offering?",
+          "fill_guidance": [
+            "Make ambiguity feel like hesitation in a horror finale.",
+            "The final voice can shift because Ura has the phone.",
+            "Keep this as an uncanny bad ending, not a lore dump.",
+            "Do not rescue Kenji."
+          ],
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "value": "S06_Ending",
+              "raw": "`S06_Ending`"
+            },
+            {
+              "field": "last_template_id",
+              "kind": "set",
+              "value": "R06_OTHER",
+              "raw": "`R06_OTHER`"
+            },
+            {
+              "field": "last_intent",
+              "kind": "set",
+              "value": "OTHER",
+              "raw": "`OTHER`"
+            },
+            {
+              "field": "ending_route",
+              "kind": "set",
+              "value": "ambiguous_phone_handoff",
+              "raw": "`ambiguous_phone_handoff`"
+            },
+            {
+              "field": "ending_type",
+              "kind": "set",
+              "value": "bad_uncanny",
+              "raw": "`bad_uncanny`"
+            },
+            {
+              "field": "kenji_rescued",
+              "kind": "set",
+              "value": false,
+              "raw": "false"
+            },
+            {
+              "field": "yuki_status",
+              "kind": "set",
+              "value": "unknown",
+              "raw": "`unknown`"
+            },
+            {
+              "field": "ura_status",
+              "kind": "set",
+              "value": "active_with_phone",
+              "raw": "`active_with_phone`"
+            },
+            {
+              "field": "evidence_status",
+              "kind": "set",
+              "value": "unknown",
+              "raw": "`unknown`"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

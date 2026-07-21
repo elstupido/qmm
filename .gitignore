@@ -4,6 +4,9 @@ logs/
 *.log
 *.jsonl
 
+# Server-side player sessions — story state + transcripts (per user/module). Player data; never commit.
+sessions/
+
 # 5090-specific firewall/ops cruft from the deploy gremlin hunt
 fix-firewall.ps1
 

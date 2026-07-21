@@ -1,0 +1,87 @@
+{
+  "comment": "Lore + rails for yuki-kokugikan-ep1. Hand-authored or imported from a SillyTavern lorebook export (tools/import-lorebook.mjs). Merged into the pack at module load — lives OUTSIDE pack.json so build-pack regeneration never wipes it. MUST stay byte-identical with the qmm-android copy.",
+  "lore": {
+    "budget_pct": 10,
+    "scan_depth": 8,
+    "entries": [
+      {
+        "id": "kokugikan-night",
+        "constant": true,
+        "order": 10,
+        "keys": [],
+        "content": "the kokugikan after hours: service corridors, one humming vending machine, the practice hall smelling of salt and old canvas.",
+        "comment": "always-on setting texture"
+      },
+      {
+        "id": "ura-knees",
+        "keys": ["ura", "oyakata", "knees"],
+        "order": 100,
+        "cooldown": 2,
+        "content": "ura was forced to retire when his knees gave out — he still walks like every step is a debt someone else should pay.",
+        "comment": "antagonist backstory, cued by his name"
+      },
+      {
+        "id": "kenji-devotion",
+        "keys": ["kenji"],
+        "order": 90,
+        "cooldown": 3,
+        "content": "kenji never missed a single one of ura's practices in nine years. devotion like that gets noticed.",
+        "comment": "victim detail; cooldown so it can't spam"
+      },
+      {
+        "id": "floor-scrape",
+        "keys": ["sound", "noise", "hear", "quiet"],
+        "delay": 6,
+        "probability": 60,
+        "cooldown": 2,
+        "order": 80,
+        "content": "that slow scraping under the floorboards again — like something being dragged a few centimeters at a time.",
+        "comment": "nocebo drip: dormant until turn 6, then 60% when the player mentions sound"
+      },
+      {
+        "id": "copper-smell",
+        "keys": ["smell", "copper", "metallic"],
+        "sticky": 3,
+        "cooldown": 4,
+        "order": 70,
+        "content": "the copper smell is stronger near the practice dohyo. it should not smell like that.",
+        "comment": "sticky sensory dread: once cued, haunts 3 turns"
+      },
+      {
+        "id": "coldspot-draft",
+        "keys": ["cold", "chill"],
+        "group": "coldspot",
+        "order": 50,
+        "content": "the cold spot by the storeroom door could just be a draft from the loading dock.",
+        "comment": "equivoque A: the mundane out"
+      },
+      {
+        "id": "coldspot-breath",
+        "keys": ["freezing", "shiver"],
+        "group": "coldspot",
+        "order": 50,
+        "content": "the cold by the storeroom moves with her, like breath on the back of her neck.",
+        "comment": "equivoque B: the haunted read. First of the group to fire becomes this player's canon forever."
+      }
+    ]
+  },
+  "rails": [
+    {
+      "find": "^(okay|ok|good call|yeah you[’']re right)[,.!\\s]+",
+      "replace": "",
+      "flags": "i",
+      "comment": "de-anchor: gemma copies template openers (measured 2026-07-20); prompt-only fix was partial"
+    },
+    {
+      "find": "hands (are )?shaking",
+      "replace": "jaw tight",
+      "flags": "gi",
+      "comment": "retire the most recycled fear image"
+    },
+    {
+      "find": "barely breathing",
+      "replace": "not breathing right",
+      "flags": "gi"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "yuki-kokugikan-ep1",
+  "story_id": "yuki-kokugikan",
+  "episode": 1,
+  "version": "1.0.0",
+  "title": "Quantum Murder Mysteries — Kokugikan",
+  "engine_min_version": "0.1.0",
+  "entitlement": "free",
+  "publish": true,
+  "safety_profile": {
+    "stop": true,
+    "min_age": 18,
+    "distress_detection": true
+  },
+  "breach_config": {
+    "hot_reading": false,
+    "nocebo": false,
+    "dual_reality": false
+  },
+  "pack": "pack.json"
+}
