@@ -726,8 +726,170 @@ function showPublishResult(host, r) {
   }
 }
 
+/* ------------------------------------------------------------------- lore */
+function renderLore() {
+  main.innerHTML = '';
+  main.append(el('h1', '', 'Lore workbench'), el('p', 'sub', 'keyed lore with timed effects + equivoque groups, and the de-anchor rails'));
+
+  if (!S.draft.lore) {
+    const mk = el('button', 'primary', 'Create the lore sidecar for this module');
+    mk.onclick = () => { S.draft.lore = { lore: { budget_pct: 10, scan_depth: 8, entries: [] }, rails: [] }; markDirty('lore'); renderLore(); };
+    main.append(mk);
+    return;
+  }
+  const doc = S.draft.lore;
+  doc.lore ||= { budget_pct: 10, scan_depth: 8, entries: [] };
+  doc.lore.entries ||= [];
+  doc.rails ||= [];
+  const dirty = () => markDirty('lore');
+
+  // header knobs — budget is a PERCENT of the context window, never an absolute
+  const g = el('div', 'grid3');
+  const bp = el('input'); bp.type = 'number'; bp.min = 1; bp.max = 100; bp.value = doc.lore.budget_pct ?? 10;
+  bp.oninput = () => { doc.lore.budget_pct = parseInt(bp.value, 10) || 10; dirty(); };
+  const sd = el('input'); sd.type = 'number'; sd.min = 1; sd.value = doc.lore.scan_depth ?? 8;
+  sd.oninput = () => { doc.lore.scan_depth = parseInt(sd.value, 10) || 8; dirty(); };
+  const budgetHint = el('div', 'hint', `≈ ${Math.floor((S.health?.num_ctx || 32768) * ((doc.lore.budget_pct ?? 10) / 100) * 4)} chars at the current window (${S.health?.num_ctx || 32768} ctx)`);
+  bp.addEventListener('input', () => budgetHint.textContent = `≈ ${Math.floor((S.health?.num_ctx || 32768) * ((parseInt(bp.value, 10) || 10) / 100) * 4)} chars at the current window`);
+  const bpw = labeled('budget (% of context window)', bp); bpw.append(budgetHint);
+  g.append(bpw, labeled('scan depth (messages)', sd));
+  main.append(g);
+
+  // entries table
+  main.append(el('h2', '', `Entries (${doc.lore.entries.length})`));
+  const host = el('div');
+  main.append(host);
+  const renderEntries = () => {
+    host.innerHTML = '';
+    doc.lore.entries.forEach((e, i) => {
+      const c = el('div', 'card');
+      c.style.marginBottom = '10px';
+      const top = el('div', 'grid3');
+      top.append(
+        labeled('id', bind(input(e.id), v => { e.id = v; dirty(); })),
+        labeled('keys (comma-sep; /regex/i allowed)', bind(input((e.keys || []).join(', ')), v => { e.keys = v.split(',').map(s => s.trim()).filter(Boolean); dirty(); })),
+        labeled('group (equivoque lock)', bind(input(e.group || ''), v => { if (v) e.group = v; else delete e.group; dirty(); })),
+      );
+      c.append(top);
+      c.append(el('label', '', 'content (injected line; macros allowed)'));
+      const ta = el('textarea'); ta.style.minHeight = '48px'; ta.value = esc(e.content);
+      ta.oninput = () => { e.content = ta.value; dirty(); };
+      c.append(ta);
+      const nums = el('div', 'grid3');
+      const numField = (name, hint) => {
+        const n = el('input'); n.type = 'number'; n.min = 0; n.value = e[name] ?? (name === 'probability' ? 100 : name === 'order' ? 0 : 0);
+        n.oninput = () => { const val = parseInt(n.value, 10); if (name === 'probability' ? val < 100 : val > 0) e[name] = val; else delete e[name]; dirty(); };
+        return labeled(hint, n);
+      };
+      nums.append(numField('order', 'order (higher = first claim on budget)'), numField('probability', 'probability %'), numField('delay', 'delay (turns dormant)'));
+      const nums2 = el('div', 'grid3');
+      nums2.append(numField('cooldown', 'cooldown (turns quiet after fire)'), numField('sticky', 'sticky (turns it persists)'), (() => {
+        const w = el('div');
+        w.append(el('label', '', 'flags'));
+        const row = el('div', 'row');
+        const cb = (name, label) => {
+          const b = el('button', '', `${label}: ${e[name] ? 'on' : 'off'}`);
+          b.onclick = () => { if (e[name]) delete e[name]; else e[name] = true; dirty(); renderEntries(); };
+          return b;
+        };
+        const en = el('button', '', `enabled: ${e.enabled === false ? 'NO' : 'yes'}`);
+        en.onclick = () => { if (e.enabled === false) delete e.enabled; else e.enabled = false; dirty(); renderEntries(); };
+        row.append(cb('constant', 'constant'), cb('case_sensitive', 'case'), en);
+        const rm = el('button', 'danger', 'delete');
+        rm.onclick = () => { doc.lore.entries.splice(i, 1); dirty(); renderLore(); };
+        row.append(rm);
+        w.append(row);
+        return w;
+      })());
+      c.append(nums, nums2);
+      host.appendChild(c);
+    });
+    const add = el('button', '', '+ add entry');
+    add.onclick = () => { doc.lore.entries.push({ id: `entry-${doc.lore.entries.length + 1}`, keys: [], content: '' }); dirty(); renderLore(); };
+    host.append(add);
+  };
+  renderEntries();
+
+  // ST import
+  main.append(el('h2', '', 'Import a SillyTavern lorebook'));
+  const imp = el('div', 'card');
+  imp.style.maxWidth = '520px';
+  const file = el('input'); file.type = 'file'; file.accept = '.json,application/json';
+  const mergeBtn = el('button', '', 'merge: on');
+  let mergeOn = true;
+  mergeBtn.onclick = () => { mergeOn = !mergeOn; mergeBtn.textContent = `merge: ${mergeOn ? 'on' : 'off'}`; };
+  const go = el('button', 'primary', 'Import');
+  go.onclick = async () => {
+    const f = file.files?.[0];
+    if (!f) return toast('pick an exported lorebook .json first', true);
+    if (S.dirty.has('lore')) return toast('save (or discard) your lore edits first — import writes the sidecar directly', true);
+    try {
+      const st_book = JSON.parse(await f.text());
+      const r = await api('POST', `api/studio/import-lorebook/${S.id}`, { st_book, merge: mergeOn, base_rev: S.draft.revs.lore });
+      S.draft = await api('GET', `api/studio/draft/${S.id}`);
+      toast(`imported ${r.imported} entries${r.warnings.length ? ` — ${r.warnings.length} warning(s)` : ''}`);
+      if (r.warnings.length) console.warn('[import]', r.warnings);
+      renderLore();
+      const warnHost = $('import-warnings');
+      if (warnHost) { warnHost.innerHTML = ''; r.warnings.forEach(w => warnHost.append(el('div', 'item warn', w))); }
+    } catch (e) { toast(`import failed: ${e.message}`, true); }
+  };
+  imp.append(labeled('SillyTavern World Info export (.json)', file), el('div', 'row'));
+  imp.lastChild.append(mergeBtn, go);
+  main.append(imp);
+  main.append(Object.assign(el('div', 'lint'), { id: 'import-warnings' }));
+
+  // rails
+  main.append(el('h2', '', `Rails (${doc.rails.length})`), el('p', 'hint', 'regex post-processing of generated bubbles — the mechanical de-anchor. A rail can never blank the character (all-dead → originals kept).'));
+  const rh = el('div');
+  main.append(rh);
+  const renderRails = () => {
+    rh.innerHTML = '';
+    const tbl = el('table', 'updates');
+    tbl.innerHTML = '<thead><tr><th>find (regex)</th><th>replace</th><th>flags</th><th></th></tr></thead>';
+    const tb = el('tbody');
+    doc.rails.forEach((r, i) => {
+      const tr = el('tr');
+      const f1 = el('td'); f1.append(bind(input(r.find), v => { r.find = v; dirty(); testRail(); }));
+      const f2 = el('td'); f2.append(bind(input(r.replace ?? ''), v => { r.replace = v; dirty(); testRail(); }));
+      const f3 = el('td'); f3.append(bind(input(r.flags ?? 'gi'), v => { r.flags = v; dirty(); testRail(); }));
+      const f4 = el('td');
+      const rm = el('button', 'danger', '×');
+      rm.onclick = () => { doc.rails.splice(i, 1); dirty(); renderRails(); };
+      f4.append(rm);
+      tr.append(f1, f2, f3, f4);
+      tb.appendChild(tr);
+    });
+    tbl.append(tb);
+    rh.append(tbl);
+    const add = el('button', '', '+ add rail');
+    add.style.marginTop = '6px';
+    add.onclick = () => { doc.rails.push({ find: '', replace: '', flags: 'gi' }); dirty(); renderRails(); };
+    rh.append(add);
+  };
+  renderRails();
+
+  main.append(el('h2', '', 'Rail tester'));
+  const testIn = el('textarea');
+  testIn.style.minHeight = '44px';
+  testIn.value = "okay. i'll check the storeroom. my hands shaking so bad";
+  const testOut = el('pre', 'mono');
+  testOut.style.cssText = 'white-space:pre-wrap;background:var(--panel);padding:10px;border-radius:8px;margin-top:8px;';
+  const testRail = () => {
+    let s = testIn.value;
+    for (const r of doc.rails) {
+      if (!r.find) continue;
+      try { s = s.replace(new RegExp(r.find, r.flags ?? 'gi'), r.replace ?? ''); } catch { /* bad regex: skip */ }
+    }
+    s = s.replace(/\s{2,}/g, ' ').trim();
+    testOut.textContent = s || '(blanked — the engine would keep the original)';
+  };
+  testIn.oninput = testRail;
+  testRail();
+  main.append(testIn, testOut);
+}
+
 /* ------------------------------------------------------- stubs (later phases) */
-function renderLore() { renderStub('Lore workbench lands in Phase 7.'); }
 function renderStub(msg) {
   main.innerHTML = '';
   main.append(el('h1', '', 'Coming soon'), el('p', 'sub', typeof msg === 'string' ? msg : 'this panel lands in a later phase'));

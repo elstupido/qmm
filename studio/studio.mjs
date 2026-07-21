@@ -26,6 +26,7 @@ import { validateModule } from '../server/validate.mjs';
 import { DraftStore } from './lib/draft-store.mjs';
 import * as scratchSessions from './lib/scratch-sessions.mjs';
 import { Publisher } from './lib/publish.mjs';
+import { convertLorebook } from '../server/lorebook-import.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(here, '..');
@@ -347,6 +348,21 @@ const server = createServer(async (req, res) => {
       const sess = scratchSessions.loadSession(playId, moduleId);
       if (!sess) return sendJson(res, 404, { error: 'not_found' });
       return sendJson(res, 200, sess);
+    }
+
+    // ------------------------------------------------- ST lorebook import ----
+    if ((m = /^\/api\/studio\/import-lorebook\/([^/]+)$/.exec(path)) && req.method === 'POST') {
+      if (!requireToken(req, res)) return;
+      const id = decodeURIComponent(m[1]);
+      const body = await readBody(req);
+      try {
+        const draft = store.loadDraft(id);
+        if (!draft) return sendJson(res, 404, { error: 'not_found', detail: `draft ${id}` });
+        const { doc, imported, warnings } = convertLorebook(body.st_book, { existingDoc: draft.lore, merge: !!body.merge });
+        const { rev } = store.saveDoc(id, 'lore', doc, body.base_rev ?? draft.revs.lore);
+        slog({ kind: 'lorebook_import', id, imported, merge: !!body.merge });
+        return sendJson(res, 200, { imported, warnings, rev });
+      } catch (e) { return storeError(res, e); }
     }
 
     // ------------------------------------------------------------ publish ----
