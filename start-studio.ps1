@@ -14,6 +14,15 @@ if ($Stop) {
 
 if ($existing) { Write-Host "studio already up on http://127.0.0.1:$port"; exit 0 }
 
+# Author-chat engine: pick up the MiniMax key from ~/.env (Martin's convention) unless already set.
+if (-not $env:MINIMAX_API_KEY) {
+    $envFile = Join-Path $env:USERPROFILE '.env'
+    if (Test-Path $envFile) {
+        $line = Select-String -Path $envFile -Pattern '^MINIMAX_API_KEY=' | Select-Object -First 1
+        if ($line) { $env:MINIMAX_API_KEY = $line.Line.Split('=', 2)[1].Trim('"').Trim("'") }
+    }
+}
+
 # Dev tokens: fine locally (CFA + real tokens gate prod). Set real ones via env to override.
 if (-not $env:STUDIO_TOKEN) { $env:STUDIO_TOKEN = 'dev-studio-token' }
 if (-not $env:RELOAD_TOKEN) { $env:RELOAD_TOKEN = 'dev-reload-token' }
