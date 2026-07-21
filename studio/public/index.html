@@ -2,13 +2,19 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+  <meta name="theme-color" content="#07070b">
   <title>QMM Author Studio</title>
   <link rel="stylesheet" href="studio.css">
 </head>
 <body>
+  <header id="mobilebar">
+    <button id="burger" aria-label="menu">☰</button>
+    <div id="mobilebar-title">QMM Studio</div>
+  </header>
+  <div id="drawer-backdrop"></div>
   <div id="app">
-    <nav>
+    <nav id="nav">
       <div class="brand">QMM Studio<small>story-pack authoring</small></div>
       <a href="#/" data-nav="dash">Modules</a>
       <div class="mod" id="nav-mod" style="display:none">module</div>

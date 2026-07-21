@@ -19,7 +19,11 @@
 html, body { height: 100%; }
 body { background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 14px; }
 
-#app { display: grid; grid-template-columns: 210px 1fr; height: 100vh; }
+#app { display: grid; grid-template-columns: 210px 1fr; height: 100vh; height: 100dvh; }
+
+/* mobile chrome — hidden on desktop */
+#mobilebar { display: none; }
+#drawer-backdrop { display: none; }
 
 /* ------------------------------------------------------------ left rail --- */
 nav {
@@ -160,3 +164,64 @@ table.updates .raw { color: var(--muted); font-family: var(--mono); font-size: 1
 .boot { color: var(--muted); padding: 40px; }
 .hint { color: var(--muted); font-size: 12px; margin-top: 4px; }
 hr.sep { border: 0; border-top: 1px solid var(--line); margin: 20px 0; }
+
+/* ------------------------------------------------------------- mobile ----- */
+/* The Claude/ChatGPT shape: full-screen chat, drawer nav, thumb composer. */
+@media (max-width: 800px) {
+  #app { display: block; height: auto; min-height: 100dvh; }
+
+  #mobilebar {
+    display: flex; align-items: center; gap: 10px;
+    position: sticky; top: 0; z-index: 30;
+    background: var(--panel); border-bottom: 1px solid var(--line);
+    padding: 10px 12px calc(10px);
+    padding-top: calc(10px + env(safe-area-inset-top));
+  }
+  #burger { font-size: 18px; padding: 8px 12px; border-radius: 10px; }
+  #mobilebar-title { font-weight: 700; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  nav {
+    position: fixed; top: 0; left: 0; bottom: 0; width: min(78vw, 300px); z-index: 40;
+    transform: translateX(-102%); transition: transform .22s ease;
+    border-right: 1px solid var(--line); box-shadow: 8px 0 30px rgba(0,0,0,.5);
+    padding-top: calc(14px + env(safe-area-inset-top));
+  }
+  body.drawer-open nav { transform: translateX(0); }
+  body.drawer-open #drawer-backdrop {
+    display: block; position: fixed; inset: 0; z-index: 35; background: rgba(0,0,0,.55);
+  }
+  nav a { padding: 13px 18px; font-size: 15px; }  /* thumb targets */
+
+  main { padding: 14px 14px 90px; }
+  #strip { left: 0; padding: 8px 12px calc(8px + env(safe-area-inset-bottom)); flex-wrap: wrap; }
+
+  /* tables + editors: scroll, never crush */
+  table.updates { display: block; overflow-x: auto; white-space: nowrap; }
+  .grid2, .grid3 { grid-template-columns: 1fr; }
+  .cards { grid-template-columns: 1fr; }
+  iframe { height: 78dvh !important; }
+
+  /* agent chat = the ChatGPT shape */
+  .agent-wrap { min-height: calc(100dvh - 118px); max-width: none; }
+  .agent-head { position: sticky; top: calc(42px + env(safe-area-inset-top)); background: var(--bg); z-index: 5; padding-top: 6px; }
+  .msg { max-width: 92%; font-size: 15px; }
+  .fold, .chiprow { max-width: 95%; }
+  .agent-composer {
+    position: fixed; left: 0; right: 0; bottom: 0; margin: 0; z-index: 20;
+    background: var(--panel); border-top: 1px solid var(--line);
+    padding: 10px 10px calc(10px + env(safe-area-inset-bottom));
+    gap: 6px;
+  }
+  .agent-wrap { padding-bottom: 120px; } /* room above the fixed composer */
+  .agent-composer textarea { font-size: 16px; min-height: 44px; }  /* 16px stops iOS focus-zoom */
+  .agent-composer .iconbtn, .agent-composer button { min-height: 44px; min-width: 44px; font-size: 16px; }
+
+  input[type=text], input[type=number], textarea, select { font-size: 16px; }
+  button { -webkit-tap-highlight-color: transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  nav { transition: none; }
+  .agent-status { animation: none; }
+  .iconbtn.listening { animation: none; }
+}

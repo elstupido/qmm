@@ -146,6 +146,9 @@ async function openModule(id, panel) {
 }
 
 function show(panel) {
+  document.body.classList.remove('drawer-open');
+  const mt = $('mobilebar-title');
+  if (mt) mt.textContent = S.id ? `${S.id} · ${panel === 'author' ? 'chat' : panel}` : 'QMM Studio';
   document.querySelectorAll('nav a[data-nav]').forEach(a => {
     a.classList.toggle('active', a.dataset.nav === panel);
   });
@@ -1249,6 +1252,8 @@ function renderStub(msg) {
 
 /* ------------------------------------------------------------------- boot */
 async function boot() {
+  $('burger').onclick = () => document.body.classList.toggle('drawer-open');
+  $('drawer-backdrop').onclick = () => document.body.classList.remove('drawer-open');
   $('token').value = localStorage.getItem('studio_token') || '';
   $('token').onchange = () => localStorage.setItem('studio_token', $('token').value.trim());
   $('btn-save').onclick = saveAll;
