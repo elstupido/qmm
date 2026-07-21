@@ -29,6 +29,7 @@ import { Publisher } from './lib/publish.mjs';
 import { convertLorebook } from '../server/lorebook-import.mjs';
 import { digest } from './lib/signals.mjs';
 import { toCharacterCard, toWorldInfo, stripTemplateEntries } from './lib/st-bridge.mjs';
+import { runAuthorChat, AUTHOR_LLM_URL, AUTHOR_LLM_MODEL } from './lib/author-chat.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(here, '..');
@@ -363,6 +364,24 @@ const server = createServer(async (req, res) => {
       const days = Math.min(60, Math.max(1, parseInt(url.searchParams.get('days') || '7', 10) || 7));
       const moduleId = url.searchParams.get('module_id') || undefined;
       return sendJson(res, 200, digest(LOG_DIR, { days, moduleId }));
+    }
+
+    // --------------------------------------------------------- author chat ----
+    // Chat-first authoring: the LLM engine (MiniMax-M3 when MINIMAX_API_KEY is set; any
+    // OpenAI-compatible endpoint otherwise) does the data-entry through draft-writing tools.
+    if (req.method === 'GET' && path === '/api/studio/author-info') {
+      return sendJson(res, 200, { url: AUTHOR_LLM_URL, model: AUTHOR_LLM_MODEL, keyed: !!(process.env.AUTHOR_LLM_KEY || process.env.MINIMAX_API_KEY) });
+    }
+    if ((m = /^\/api\/studio\/author-chat\/([^/]+)$/.exec(path)) && req.method === 'POST') {
+      if (!requireToken(req, res)) return;
+      const id = decodeURIComponent(m[1]);
+      const body = await readBody(req);
+      try {
+        const out = await runAuthorChat({ store, id, messages: Array.isArray(body.messages) ? body.messages : [] });
+        const draft = store.loadDraft(id);
+        slog({ kind: 'author_chat', id, rounds: out.rounds, tools: out.tool_log.map(t => `${t.tool}${t.ok ? '' : '!'}`) });
+        return sendJson(res, 200, { ...out, revs: draft?.revs || null });
+      } catch (e) { return storeError(res, e); }
     }
 
     // ------------------------------------------------- SillyTavern bridge ----

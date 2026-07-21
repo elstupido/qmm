@@ -113,7 +113,7 @@ function renderLintInto(host) {
 }
 
 /* ----------------------------------------------------------------- router */
-const routes = { dash: renderDash, story: renderStory, beats: renderBeats, lore: renderLore, test: renderTest, play: renderPlay, publish: renderPublish, signals: renderSignals };
+const routes = { dash: renderDash, author: renderAuthor, story: renderStory, beats: renderBeats, lore: renderLore, test: renderTest, play: renderPlay, publish: renderPublish, signals: renderSignals };
 
 function nav() {
   const h = location.hash || '#/';
@@ -915,6 +915,89 @@ function renderLore() {
   testIn.oninput = testRail;
   testRail();
   main.append(testIn, testOut);
+}
+
+/* ------------------------------------------------------------ author chat */
+function renderAuthor() {
+  main.innerHTML = '';
+  main.append(el('h1', '', 'Author chat'), el('p', 'sub', 'the primary authoring flow: direct the story in plain words — the engine does the data entry through draft-writing tools'));
+
+  if (!S.chat || S.chat.id !== S.id) S.chat = { id: S.id, messages: [], busy: false };
+  const chat = S.chat;
+
+  const info = el('p', 'hint', 'engine: …');
+  api('GET', 'api/studio/author-info').then(i => {
+    info.textContent = `engine: ${i.model} @ ${i.url}${i.keyed ? '' : ' (keyless local — set MINIMAX_API_KEY for MiniMax-M3)'}`;
+  }).catch(() => { info.textContent = 'engine info unavailable'; });
+  main.append(info);
+
+  const thread = el('div');
+  thread.style.cssText = 'display:flex;flex-direction:column;gap:10px;max-width:860px;margin-bottom:14px;';
+  main.append(thread);
+
+  const renderThread = () => {
+    thread.innerHTML = '';
+    for (const m of chat.messages) {
+      if (m.role === 'user') {
+        const b = el('div', 'card', m.content);
+        b.style.cssText = 'align-self:flex-end;background:var(--blue);color:#fff;max-width:70%;';
+        thread.append(b);
+      } else if (m.role === 'assistant') {
+        if (m.tool_calls?.length) {
+          const row = el('div', 'row');
+          for (const tc of m.tool_calls) row.append(badge(tc.function?.name || 'tool', 'live'));
+          thread.append(row);
+        }
+        if (m.content) {
+          const b = el('div', 'card', m.content);
+          b.style.maxWidth = '85%';
+          thread.append(b);
+        }
+      } else if (m.role === 'tool') {
+        // rendered via the log chips on the assistant turn; skip raw payloads
+      }
+    }
+    if (chat.lastLog?.length) {
+      const lg = el('div', 'lint');
+      for (const t of chat.lastLog) lg.append(el('div', `item ${t.ok ? '' : 'err'}`, `${t.tool}: ${t.summary}`));
+      thread.append(lg);
+    }
+    if (chat.busy) thread.append(el('p', 'hint', 'engine is working (tool rounds can take a minute on big asks)…'));
+  };
+  renderThread();
+
+  const inputTa = el('textarea');
+  inputTa.style.minHeight = '64px';
+  inputTa.placeholder = 'direct the story… e.g. "name the protagonist Noa, a night-shift guard; write the cold open and a 3-intent taxonomy"';
+  const row = el('div', 'row');
+  row.style.marginTop = '8px';
+  const send = el('button', 'primary', 'Send');
+  const reset = el('button', 'danger', 'Reset conversation');
+  reset.onclick = () => { S.chat = { id: S.id, messages: [], busy: false }; renderAuthor(); };
+  row.append(send, reset);
+  main.append(inputTa, row);
+
+  send.onclick = async () => {
+    const text = inputTa.value.trim();
+    if (!text || chat.busy) return;
+    inputTa.value = '';
+    chat.messages.push({ role: 'user', content: text });
+    chat.busy = true;
+    renderThread();
+    try {
+      const r = await api('POST', `api/studio/author-chat/${S.id}`, { messages: chat.messages });
+      chat.messages = r.messages;
+      chat.lastLog = r.tool_log;
+      S.draft = await api('GET', `api/studio/draft/${S.id}`);
+      S.dirty = new Set();
+      refreshStrip();
+    } catch (e) { toast(`author chat failed: ${e.message}`, true); }
+    chat.busy = false;
+    renderThread();
+  };
+  inputTa.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') send.onclick();
+  });
 }
 
 /* ---------------------------------------------------------------- signals */

@@ -1,49 +1,216 @@
 {
-  "meta": {
-    "title": "Dark Demo (DEV ONLY)",
-    "cold_open": ["TODO: Martin authors the opening bubbles"],
-    "intents": {
-      "TODO_INTENT_A": "TODO: a per-story intent — what the player is telling the character to do",
-      "TODO_INTENT_B": "TODO: another intent",
-      "OTHER": "Ambiguous, emotional, off-path, or hard to classify."
-    },
-    "voice_example": "TODO: a few example bubbles showing the character's texting voice"
-  },
-  "families": [
-    {
-      "n": 1,
-      "from": "S00_Open",
-      "to": "S01_TODO",
-      "bubbles": [3, 8],
-      "shared_rules": ["TODO: per-beat generation rules (what not to reveal yet, tone, etc.)"],
-      "available_context": ["TODO: what the character knows at this beat"],
-      "input_fields": ["current_state", "classified_intent", "user_message"],
-      "templates": {
-        "OTHER": {
-          "id": "R01_OTHER",
-          "intent": "OTHER",
-          "intent_desc": "TODO",
-          "template": "TODO: the base bubbles for this transition",
-          "fill_guidance": ["TODO"],
-          "updates": [
-            { "field": "current_state", "kind": "set", "value": "S01_TODO", "raw": "`S01_TODO`" }
-          ]
-        }
-      }
-    }
-  ],
   "breaches": [
     {
-      "id": "example_hot_read",
-      "type": "hot_reading",
       "_anatomy": "Illustrative — the 7-stage breach anatomy. See qmm/design/mentalism-and-storytelling.md.",
-      "source": "TODO: high-confidence first-party fact (local time, city, weather)",
-      "gate": "TODO: confidence threshold; distress-safe",
-      "transform": "TODO: imply, don't state ('you should be asleep', not 'it is 2:47 in Denver')",
       "attribution": "the Story / character knows — never 'we have your data'",
-      "separation": "TODO: when it fires (e.g. captured at onboarding, deployed later)",
+      "fire_condition": "TODO: the beat/state that triggers it",
+      "gate": "TODO: confidence threshold; distress-safe",
+      "id": "example_hot_read",
       "out": "TODO: graceful miss (don't fire low-confidence)",
-      "fire_condition": "TODO: the beat/state that triggers it"
+      "separation": "TODO: when it fires (e.g. captured at onboarding, deployed later)",
+      "source": "TODO: high-confidence first-party fact (local time, city, weather)",
+      "transform": "TODO: imply, don't state ('you should be asleep', not 'it is 2:47 in Denver')",
+      "type": "hot_reading"
     }
-  ]
+  ],
+  "families": [
+    {
+      "available_context": [
+        "Noa is at her desk in the main lobby of a deserted office tower. She notices an anomaly on the directory listing, making her pause and consider the situation."
+      ],
+      "bubbles": [
+        3,
+        7
+      ],
+      "from": "S00_Open",
+      "input_fields": [
+        "current_state"
+      ],
+      "n": 1,
+      "shared_rules": [
+        "The initial discovery is the unusual 13th floor listed in the public directory. Noa remains at her desk for now. The atmosphere is quiet but unsettling."
+      ],
+      "templates": {
+        "HOLD_BACK": {
+          "fill_guidance": [],
+          "id": "R01_HOLD_BACK",
+          "intent": "HOLD_BACK",
+          "intent_desc": "the player tells Noa to wait, hide, stay put, or not engage",
+          "template": "i think we should just keep chatting for a bit. everything seems fine here in the main lobby area lol.\n\n{{random:a|b}}",
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "raw": "`S01_TODO`",
+              "value": "S01_TODO"
+            },
+            {
+              "field": "current_state",
+              "kind": "set",
+              "raw": "`S01_Wrong_Floor`",
+              "value": "S01_Wrong_Floor"
+            }
+          ]
+        },
+        "INVESTIGATE": {
+          "fill_guidance": [],
+          "id": "R01_INVESTIGATE",
+          "intent": "INVESTIGATE",
+          "intent_desc": "the player tells Noa to go look, check, or try something",
+          "template": "omg you're right about that floor number. i should check it out? but where would i even start looking for a floor that doesn't exist lol.\n\n{{random:a|b}}",
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "raw": "`S01_TODO`",
+              "value": "S01_TODO"
+            },
+            {
+              "field": "current_state",
+              "kind": "set",
+              "raw": "`S01_Wrong_Floor`",
+              "value": "S01_Wrong_Floor"
+            }
+          ]
+        },
+        "OTHER": {
+          "fill_guidance": [],
+          "id": "R01_OTHER",
+          "intent": "OTHER",
+          "intent_desc": "general input fallback",
+          "template": "it's a weird night huh. i guess there are always things to notice when you're bored lol.\n\n{{random:a|b}}",
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "raw": "`S01_TODO`",
+              "value": "S01_TODO"
+            },
+            {
+              "field": "current_state",
+              "kind": "set",
+              "raw": "`S01_Wrong_Floor`",
+              "value": "S01_Wrong_Floor"
+            }
+          ]
+        }
+      },
+      "to": "S01_Wrong_Floor"
+    },
+    {
+      "available_context": [
+        "Noa is at her desk in the main lobby of a deserted office tower. She knows the building floor plan but notices an anomaly on the directory listing."
+      ],
+      "bubbles": [
+        3,
+        7
+      ],
+      "from": "S01_Wrong_Floor",
+      "input_fields": [
+        "current_state"
+      ],
+      "n": 2,
+      "shared_rules": [
+        "The elevator panel is visible and appears normal, except for the number 13 which seems slightly out of place or inexplicably unlit."
+      ],
+      "templates": {
+        "HOLD_BACK": {
+          "fill_guidance": [],
+          "id": "R02_HOLD_BACK",
+          "intent": "HOLD_BACK",
+          "intent_desc": "the player tells Noa to wait, hide, stay put, or not engage",
+          "template": "yeah maybe we should just hang out here for a bit. nothing to worry about in the lobby haha.\n\n{{random:a|b}}",
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "raw": "`S02_End`",
+              "value": "S02_End"
+            },
+            {
+              "field": "ending_route",
+              "kind": "set",
+              "raw": "`walked_away`",
+              "value": "walked_away"
+            },
+            {
+              "field": "ending_type",
+              "kind": "set",
+              "raw": "`ambiguous`",
+              "value": "ambiguous"
+            }
+          ]
+        },
+        "INVESTIGATE": {
+          "fill_guidance": [],
+          "id": "R02_INVESTIGATE",
+          "intent": "INVESTIGATE",
+          "intent_desc": "the player tells Noa to go look, check, or try something",
+          "template": "ugh i feel kinda bad about it. but if we're talking wrongness... maybe the elevator is next? should i try pressing 13 anyway? {{random:the button clicks twice|it gives off a faint smell of ozone}}",
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "raw": "`S02_End`",
+              "value": "S02_End"
+            },
+            {
+              "field": "ending_route",
+              "kind": "set",
+              "raw": "`took_the_floor`",
+              "value": "took_the_floor"
+            },
+            {
+              "field": "ending_type",
+              "kind": "set",
+              "raw": "`dark`",
+              "value": "dark"
+            }
+          ]
+        },
+        "OTHER": {
+          "fill_guidance": [],
+          "id": "R02_OTHER",
+          "intent": "OTHER",
+          "intent_desc": "general input fallback",
+          "template": "i guess i'm just going to wander a bit and see what happens. maybe check the service elevator?\n\n{{random:a|b}}",
+          "updates": [
+            {
+              "field": "current_state",
+              "kind": "set",
+              "raw": "`S02_End`",
+              "value": "S02_End"
+            },
+            {
+              "field": "ending_route",
+              "kind": "set",
+              "raw": "`frozen`",
+              "value": "frozen"
+            },
+            {
+              "field": "ending_type",
+              "kind": "set",
+              "raw": "`ambiguous`",
+              "value": "ambiguous"
+            }
+          ]
+        }
+      },
+      "to": "S02_End"
+    }
+  ],
+  "meta": {
+    "cold_open": [
+      "hey u there?",
+      "did you see the directory list?",
+      "there's kinda a 13th floor listed. how is that possible?"
+    ],
+    "intents": {
+      "HOLD_BACK": "the player tells Noa to wait, hide, stay put, or not engage",
+      "INVESTIGATE": "the player tells Noa to go look, check, or try something",
+      "OTHER": "general input fallback"
+    },
+    "title": "Dark Demo (DEV ONLY)",
+    "voice_example": "ugh another night. so tired. i swear this place gets weirder after midnight. lol"
+  }
 }

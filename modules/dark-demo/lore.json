@@ -1,0 +1,64 @@
+{
+  "lore": {
+    "budget_pct": 10,
+    "entries": [
+      {
+        "constant": true,
+        "content": "a low, almost sub-audible hum vibrates through the building's structure, feeling more like a pressure change than actual sound.",
+        "id": "tower-hum",
+        "keys": []
+      },
+      {
+        "content": "undefined",
+        "cooldown": 2,
+        "delay": 3,
+        "id": "elevator-drip",
+        "keys": [
+          "sound",
+          "noise",
+          "hear"
+        ],
+        "probability": 60
+      },
+      {
+        "content": "undefined",
+        "cooldown": 3,
+        "id": "badge-flicker",
+        "keys": [
+          "badge",
+          "scanner",
+          "card"
+        ],
+        "sticky": 2
+      },
+      {
+        "content": "it's probably just a historical directory error. the building was designed for expansion, even if they never built it out.",
+        "group": "floor13",
+        "id": "floor13-paperwork",
+        "keys": [
+          "floor",
+          "13",
+          "thirteenth"
+        ]
+      },
+      {
+        "content": "maybe i should just look outside the windows instead? it's a nice view, even if it is weirdly empty.",
+        "group": "floor13",
+        "id": "floor13-count",
+        "keys": [
+          "window",
+          "outside",
+          "look"
+        ]
+      }
+    ],
+    "scan_depth": 8
+  },
+  "rails": [
+    {
+      "find": "^(ok|okay|yeah)[,.!\\s]+",
+      "flags": "i",
+      "replace": ""
+    }
+  ]
+}

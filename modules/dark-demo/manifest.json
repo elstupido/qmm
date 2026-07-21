@@ -1,25 +1,26 @@
 {
-  "id": "dark-demo",
-  "story_id": "dark-demo",
-  "episode": 1,
-  "version": "0.1.0",
-  "title": "Dark Demo (DEV ONLY — never ships)",
+  "breach_config": {
+    "dual_reality": true,
+    "hot_reading": true,
+    "nocebo": true
+  },
+  "character": {
+    "name": "Noa",
+    "tagline": "night-shift security guard alone in an office tower where small things are wrong"
+  },
   "engine_min_version": "0.1.0",
   "entitlement": "dev",
+  "episode": 1,
+  "id": "dark-demo",
+  "notes": "Developer test bed for validating the breach mechanics (hot reading / nocebo / dual reality) reliably, safely, and fun. publish=false: never served to players. Story content authored by Martin.",
+  "pack": "pack.json",
   "publish": false,
   "safety_profile": {
-    "stop": true,
+    "distress_detection": true,
     "min_age": 18,
-    "distress_detection": true
+    "stop": true
   },
-  "breach_config": {
-    "hot_reading": true,
-    "nocebo": true,
-    "dual_reality": true
-  },
-  "pack": "pack.json",
-  "notes": "Developer test bed for validating the breach mechanics (hot reading / nocebo / dual reality) reliably, safely, and fun. publish=false: never served to players. Story content authored by Martin.",
-  "character": {
-    "name": "TODO"
-  }
+  "story_id": "dark-demo",
+  "title": "Dark Demo (DEV ONLY)",
+  "version": "0.1.1"
 }

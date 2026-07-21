@@ -155,9 +155,12 @@ export function scanLore(pack, transcript, state, ctxTokens, trace = null) {
   const fired = [];
   const lines = [];
   let spent = 0;
+  const scanGroupTaken = new Set(); // equivoque: one member per SCAN too, not just per canon-lock
   for (const e of active) {
     const content = String(e.content);
+    if (e.group && scanGroupTaken.has(e.group)) { note(e.id, 'blocked:group', { taken_this_scan: true }); continue; }
     if (spent + content.length > budgetChars && fired.length > 0) { note(e.id, 'blocked:budget', { budget_chars: budgetChars }); continue; } // budget: skip, don't truncate
+    if (e.group) scanGroupTaken.add(e.group);
     note(e.id, 'fired', { sticky: viaSticky.has(e.id) || undefined });
     spent += content.length;
     fired.push(e.id);

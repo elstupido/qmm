@@ -94,6 +94,17 @@ const t = (who, text) => ({ who, text });
   ok('groupCanon recorded', state.lore_fx.groupCanon.coldspot === 'cold-draft');
 }
 
+// --- 5b. equivoque within ONE scan ------------------------------------------
+{
+  // a message matching BOTH group members must fire exactly one (higher order wins);
+  // discovered live: dark-demo's floor13 pair both fired on "count the floors... windows"
+  const state = { turn: 1, lore_fx: freshLoreFx() };
+  const r = scanLore(pack, [t('user', 'it is cold in here and i am freezing')], state, CTX);
+  const both = r.fired.includes('cold-draft') && r.fired.includes('cold-breath');
+  ok('same-scan group exclusivity (one member max)', !both && (r.fired.includes('cold-draft') || r.fired.includes('cold-breath')));
+  ok('same-scan winner becomes the canon', !!state.lore_fx.groupCanon.coldspot);
+}
+
 // --- 6. budget ---------------------------------------------------------------
 {
   const tiny = { lore: { budget_pct: 10, scan_depth: 4, entries: [
