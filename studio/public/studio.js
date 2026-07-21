@@ -669,6 +669,26 @@ async function renderPublish() {
     refreshStrip();
   } catch (e) { lintHost.append(el('div', 'item err', `validate failed: ${e.message}`)); }
 
+  // player-catalog listing — the switch that makes a published story REAL for players
+  main.append(el('h2', '', 'Player catalog'));
+  const listed = S.draft.manifest.publish === true;
+  const listRow = el('div', 'row');
+  listRow.append(badge(listed ? 'LISTED — players can get this story' : 'dev-only — hidden from players', listed ? 'live' : 'warn'));
+  const flip = el('button', listed ? 'danger' : 'primary', listed ? 'Make dev-only (delist)' : 'List for players');
+  flip.onclick = async () => {
+    const manifest = S.draft.manifest;
+    if (!listed && !confirm(`List "${manifest.title}" in the player catalog? After the next publish, real players can play it.`)) return;
+    manifest.publish = !listed;
+    try {
+      const { rev } = await api('PUT', `api/studio/draft/${S.id}/manifest`, { doc: manifest, base_rev: S.draft.revs.manifest });
+      S.draft.revs.manifest = rev;
+      toast(manifest.publish ? 'listed — publish to make it live' : 'delisted — publish to hide it');
+      renderPublish();
+    } catch (e) { toast(e.message, true); }
+  };
+  listRow.append(flip);
+  main.append(listRow, el('p', 'hint', 'the flag ships with the next publish. The live player hides dev-only modules from its catalog; playtest here sees everything.'));
+
   // publish controls
   main.append(el('h2', '', 'Publish'));
   const g = el('div', 'grid3');

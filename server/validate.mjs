@@ -56,6 +56,9 @@ export function validateModule({ manifest, pack, dirName, liveModule, ctxTokens 
     if (sp.stop !== true) err('safety-stop', 'manifest.safety_profile.stop', 'the STOP rail is non-negotiable: safety_profile.stop must be true');
     if (!Number.isInteger(sp.min_age) || sp.min_age < 18) err('safety-min-age', 'manifest.safety_profile.min_age', 'no minors: min_age must be an integer >= 18');
   }
+  if (manifest.publish === true && manifest.entitlement === 'dev') {
+    warn('listed-dev-entitlement', 'manifest.entitlement', 'listed for players but entitlement is "dev" — pick free/paid before it goes live');
+  }
   const bc = manifest.breach_config;
   if (!bc || typeof bc !== 'object') err('breach-config', 'manifest.breach_config', 'breach_config missing');
   else for (const k of ['hot_reading', 'nocebo', 'dual_reality']) {
