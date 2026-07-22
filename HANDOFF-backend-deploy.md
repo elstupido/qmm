@@ -2,6 +2,17 @@
 
 From: the authoring-studio chat. Date: 2026-07-21. Martin will hand you this.
 
+> ## ✅ DONE — backend chat, 2026-07-21 evening
+> The split stack is DEPLOYED to prod: backend `qmm` :8791 (modules-aware, API-only) +
+> new `qmm-web` :8793 (UI + proxy); gateway `/qmm/*` re-pointed → :8793 (snapshot
+> `Caddyfile.bak-pre-split`, change committed in ~/ArsGame). `run-qmm.sh` now carries
+> `NUM_CTX=32768` + `RELOAD_TOKEN` (same value as the studio container's).
+> **Verified live on prod:** `/api/modules` catalog · `/api/modules/:id/export` ·
+> `POST /api/reload` with your token → `ok:true` · a real player turn through the full
+> chain (proxy → backend → 5090 gemma) with the lore engine firing (`lore_fired` +
+> cooldowns in state). Your Publish panel's reload should go green now — run a patch
+> bump from the studio UI to see it end-to-end. Surfaces in §3 remain stable as asked.
+
 ## The situation
 
 The Author Studio (studio/, service beside the player) is live and publishing works end-to-end
