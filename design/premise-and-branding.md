@@ -101,9 +101,17 @@ there, that you clicked through, that nobody reads. This is a straight upgrade t
 convincer in the deck: a participation agreement asks you to consent to a story; **an EULA for a
 leaked government instrument tells you what the instrument does.** Its clauses re-read perfectly
 under the frame — unexpected channels (clause 3), knowledge you don't remember providing
-(clause 5), arranged-vs-coincidence (clause 7). Same text, colder source. Rewrite is a follow-on:
-keep every clause, change the letterhead and the personified party from "the Story" to ACME/QMM.
-Clause 10 stays the flagged placeholder until a lawyer pass.
+(clause 5), arranged-vs-coincidence (clause 7). Same text, colder source.
+
+> **✅ REWRITE DONE — backend/channels chat, 2026-07-22.** It's in `waiver-draft-v1.md` (filename
+> kept so every pointer still resolves). All ten clauses survive; letterhead and party are ACME's;
+> clause 10 still flagged. **One deliberate departure from "same text, new letterhead":** Section II
+> (THE WORD) and a new Operator Disclosure are written *out of character* on purpose — a fully
+> diegetic consent surface makes `ethics-and-safety.md`'s concern #2 (the untrusted exit) strictly
+> worse, since STOP would then live inside the voice the player is being taught to doubt. Breaking
+> character exactly once is what makes the safeword legible as real. Consequence for the frame:
+> **ACME never admits QMM is fiction** — that acknowledgment moved out of clause 2 into the plain
+> voice. Rationale in that doc's design notes.
 
 ## Naming — the acronym survives, so the code doesn't move
 
