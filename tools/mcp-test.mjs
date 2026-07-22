@@ -81,7 +81,7 @@ try {
 
   // ---- tools/call ------------------------------------------------------------
   const guide = await rpc('tools/call', { name: 'get_authoring_guide', arguments: {} });
-  ok('authoring guide served', guide.result.content[0].text.includes('FORMAT LAW') && guide.result.isError === false);
+  ok('authoring guide served from the skill FILE (craft doctrine present)', guide.result.content[0].text.includes('FORMAT LAW') && guide.result.content[0].text.includes('EQUIVOQUE IS THE SPINE') && guide.result.isError === false);
 
   const mods = await rpc('tools/call', { name: 'list_modules', arguments: {} });
   ok('list_modules via MCP', JSON.parse(mods.result.content[0].text).modules.some(m => m.id === MODULE));
@@ -106,7 +106,7 @@ try {
   const pl = await rpc('prompts/list', {});
   ok('prompts/list has authoring-briefing', pl.result.prompts.some(p => p.name === 'authoring-briefing'));
   const pg = await rpc('prompts/get', { name: 'authoring-briefing' });
-  ok('prompts/get serves the briefing', pg.result.messages[0].content.text.includes('PACING LAW'));
+  ok('prompts/get serves the briefing', pg.result.messages[0].content.text.includes('WORK CADENCE'));
 
   const unknown = await rpc('no/such/method', {});
   ok('unknown method -> -32601', unknown.error?.code === -32601);

@@ -1,5 +1,15 @@
 # QMM — Operator Model (human-in-the-loop)
 
+> **STATUS (2026-07-22): LIVE TEMPLATING IS SHELVED — Martin's call.** The live-edit-while-running
+> surface described below (showrunner cockpit, live authoring into the delivery pool, operator
+> injects, population dashboard) is off for now. Authoring is offline and agent-assisted (Author
+> Studio + MCP), shipping through the draft → validate → publish → hot-reload ceremony. What
+> SURVIVES unchanged: the tier split itself (Martin authors frames at the content tier; the machine
+> fills each frame per player), the fill-time mentalism automation as the load-bearing
+> personalization layer, and the safety autopilot. The authoring doctrine distilled from this suite
+> lives in `design/authoring-skill.md` (runtime-loaded, operator-editable). The rest of this doc is
+> kept as the design record for if/when live operation is revisited.
+
 ## Decision
 QMM's intelligence is **Martin, not gemma — at the content tier, not the message tier.** Martin is
 the DM/showrunner: he authors and live-edits the templates, scenarios, beats, and world-moves; the

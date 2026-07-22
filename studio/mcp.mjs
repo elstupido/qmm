@@ -19,7 +19,11 @@ const STUDIO_URL = (process.env.STUDIO_URL || 'http://127.0.0.1:8792').replace(/
 const STUDIO_TOKEN = process.env.STUDIO_TOKEN || '';
 const PROTOCOL = '2025-06-18';
 
+// Short-TTL cache, NOT forever: the briefing comes from the operator-editable skill file
+// (design/authoring-skill.md), so a long-lived MCP client must see edits within a minute.
+const TOOLDEFS_TTL_MS = 60_000;
 let toolCache = null; // { tools: [mcp defs], briefing }
+let toolCacheAt = 0;
 
 async function studio(method, path, body) {
   const res = await fetch(STUDIO_URL + path, {
@@ -34,7 +38,7 @@ async function studio(method, path, body) {
 }
 
 async function loadTools() {
-  if (toolCache) return toolCache;
+  if (toolCache && Date.now() - toolCacheAt < TOOLDEFS_TTL_MS) return toolCache;
   const { tools, briefing } = await studio('GET', '/api/studio/tooldefs');
   const mcpTools = tools.map(t => {
     const params = JSON.parse(JSON.stringify(t.parameters || { type: 'object', properties: {} }));
@@ -50,6 +54,7 @@ async function loadTools() {
     inputSchema: { type: 'object', properties: {} },
   });
   toolCache = { tools: mcpTools, briefing };
+  toolCacheAt = Date.now();
   return toolCache;
 }
 

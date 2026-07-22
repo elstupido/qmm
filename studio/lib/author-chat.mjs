@@ -11,6 +11,9 @@
 // The loop is stateless server-side: the client owns the message history; each call runs up to
 // MAX_ROUNDS of tool execution and returns the assistant's reply + a tool log + fresh draft revs.
 
+import { readFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { OLLAMA, MODEL, NUM_CTX, buildModule, buildGeneratePrompt, generateBubbles } from '../../server/engine.mjs';
 import { scanLore, applyRails } from '../../server/lore.mjs';
 import { validateModule } from '../../server/validate.mjs';
@@ -24,6 +27,29 @@ export const AUTHOR_LLM_MODEL = process.env.AUTHOR_LLM_MODEL || (USING_MINIMAX ?
 const MAX_ROUNDS = parseInt(process.env.AUTHOR_MAX_ROUNDS || '8', 10);
 // Caps are runaway guards, not budgets — generous by house rule.
 const MAX_TOKENS = parseInt(process.env.AUTHOR_LLM_MAX_TOKENS || '32768', 10);
+
+// ------------------------------------------------------------------ skill -----
+// The authoring doctrine is design/authoring-skill.md — an OPERATOR-EDITABLE file, read fresh on
+// every turn so edits go live without a restart. Code carries only the per-surface address lines;
+// ALL shared doctrine lives in the file (one truth for the built-in chat AND MCP clients).
+const SKILL_PATH = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'design', 'authoring-skill.md');
+const SKILL_FALLBACK = `THE FORMAT LAW (violations block publish):
+- meta: title, cold_open[] (opening bubbles), voice_example, intents{} incl. OTHER (router fallback).
+- Beats are a LINEAR chain: beat n's "to" === beat n+1's "from"; the final "to" is terminal.
+- EVERY beat needs a template for EVERY intent; short lowercase bubbles, blank line between; every template's updates set current_state to its beat's "to"; final-beat templates also set ending_route and ending_type.
+WORK CADENCE: ~2 beats per exchange, validate and fix, then stop and tell the director what's next.
+Publishing is human-only — there is no publish tool.
+(NOTE: the full authoring skill file is unreadable on this deployment — running on a minimal fallback.)`;
+let skillWarned = false;
+export function skillText() {
+  try {
+    const raw = readFileSync(SKILL_PATH, 'utf8');
+    return raw.replace(/<!--[\s\S]*?-->/g, '').replaceAll('{{RUNTIME_MODEL}}', MODEL).trim();
+  } catch (e) {
+    if (!skillWarned) { console.error(`[skill] ${SKILL_PATH} unreadable (${e.message}) — serving minimal fallback`); skillWarned = true; }
+    return SKILL_FALLBACK;
+  }
+}
 
 // ------------------------------------------------------------------ tools -----
 
@@ -256,23 +282,11 @@ export const TOOL_IMPL = {
 // ------------------------------------------------------------------- loop -----
 
 function systemPrompt(id, characterName) {
-  return `You are the authoring assistant inside the QMM Author Studio, working on the DRAFT of story module "${id}". The human is the creative director; you do the data-entry work through your tools, which write directly into the draft.
+  return `You are the authoring assistant inside the QMM Author Studio, working on the DRAFT of story module "${id}"${characterName ? ` (protagonist: ${characterName})` : ''}. The human is the creative director; you do the authoring work through your tools, which write directly into the draft. ENGINE SPLIT (law): YOU are the authoring engine; the game runs on ${MODEL}.
 
-QMM in one breath: an interactive mystery played as a text-message thread with the protagonist${characterName ? ` (${characterName})` : ''}; beats advance a linear state chain.
+${skillText()}
 
-ENGINE SPLIT (law): YOU are the authoring engine. The GAME runs on ${MODEL} — a small local model that fills your authored templates per player at runtime. Write FOR it: concrete short bubbles, explicit fill_guidance, unambiguous {{placeholders}}; never assume the fill model shares your reasoning. test_fill runs the REAL ${MODEL}, so its output is ground truth for how your templates will actually play.
-
-THE FORMAT LAW (violations block publish):
-- meta: title, cold_open[] (the opening bubbles), voice_example, intents{} incl. OTHER.
-- Beats are a LINEAR chain: beat n's "to" === beat n+1's "from"; the final "to" is terminal.
-- EVERY beat needs a template for EVERY intent. Template bubbles are short lowercase text messages, one thought each, blank line between bubbles; {{placeholders}} mark what the fill model invents.
-- Every template's updates set current_state to exactly its beat's "to". Final-beat templates also set ending_route and ending_type.
-- Deterministic macros: {{random:a|b|c}}, {{pick:name:a|b|c}}, {{time}}, {{time_of_day}}, {{date}}, {{weekday}}.
-- Lore: keyed entries with timed effects (delay/cooldown/sticky), probability, equivoque groups. Rails: regex output cleanup.
-
-PACING LAW: work in SMALL UNITS. Never author more than ~2 beats' worth of templates in one turn — do a chunk, validate it, then END YOUR TURN with one line on what's next ("next: templates for S03-S04 — say continue"). The director drives the pace; a turn that grinds for many minutes feels broken.
-WORKFLOW: call get_module_overview FIRST. Then edit with tools — several calls per turn is normal. After substantive changes call validate and FIX the errors it reports. test_fill is a live model call — use it when a template's quality matters. Finish each turn by telling the director plainly what you changed and what's still missing.
-Publishing is human-only. Only this module's draft is writable.`;
+Only this module's draft is writable.`;
 }
 
 async function callLLM(messages, tools) {
@@ -372,21 +386,10 @@ function summarize(name, r) {
 
 /**
  * The authoring briefing for EXTERNAL agents (MCP clients bring their own system prompts).
- * Same law the built-in chat gets, phrased for a client that must pass module_id explicitly.
+ * Same skill file the built-in chat gets, headed for a client that must pass module_id explicitly.
  */
 export function authoringBriefing() {
-  return `You are authoring a QMM story module through the Author Studio's tools. The human is the creative director; you do the data-entry work. Every tool (except list_modules) takes a module_id — pick it from list_modules, then ALWAYS call get_module_overview before editing.
+  return `You are authoring a QMM story module through the Author Studio's tools. The human is the creative director; you do the authoring work. Every tool (except list_modules) takes a module_id — pick it from list_modules, then ALWAYS call get_module_overview before editing.
 
-QMM in one breath: an interactive mystery played as a text-message thread with a protagonist; a small local model fills authored beat-templates per player at runtime; beats advance a linear state chain. You are the authoring brain — write FOR the small runtime model: concrete short bubbles, explicit fill_guidance, unambiguous {{placeholders}}. test_fill runs the REAL runtime model; its output is ground truth.
-
-THE FORMAT LAW (violations block publish):
-- meta: title, cold_open[] (opening bubbles), voice_example, intents{} incl. OTHER (router fallback).
-- Beats are a LINEAR chain: beat n's "to" === beat n+1's "from"; the final "to" is terminal.
-- EVERY beat needs a template for EVERY intent. Template bubbles: short lowercase text messages, one thought each, blank line between bubbles.
-- Every template's updates set current_state to exactly its beat's "to". Final-beat templates also set ending_route and ending_type.
-- Deterministic macros: {{random:a|b|c}}, {{pick:name:a|b|c}}, {{time}}, {{time_of_day}}, {{date}}, {{weekday}}.
-- Lore: keyed entries with timed effects (delay/cooldown/sticky), probability, equivoque groups (first to fire = that player's permanent canon). Rails: regex output cleanup.
-
-PACING LAW: work in SMALL UNITS (~2 beats of templates per exchange), validate after substantive changes and FIX what it reports, then stop and tell the director what's next.
-Publishing is human-only — there is no publish tool; the director uses the studio's Publish panel.`;
+${skillText()}`;
 }

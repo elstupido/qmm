@@ -161,6 +161,7 @@ const tc = (name, args, cid) => ({ id: cid || `c${Math.floor(Math.random() * 1e6
     llm: mockLLM([(history) => { seen.sys = history[0]; seen.n = history.length; return { content: 'hi' }; }]),
   });
   ok('loop: system prompt injected first, client history untouched', seen.sys.role === 'system' && seen.sys.content.includes('FORMAT LAW') && seen.n === 2);
+  ok('loop: system prompt carries the skill FILE (craft doctrine, not fallback)', seen.sys.content.includes('EQUIVOQUE IS THE SPINE') && seen.sys.content.includes('WORK CADENCE'));
 }
 
 // --------------------------------------------------------- heartbeat --------
