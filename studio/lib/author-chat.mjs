@@ -55,6 +55,23 @@ export function skillText() {
 
 const UPDATES_HINT = 'updates: array of {field, kind} objects. kinds: set{value}, add{n}, cond{raw}, set2{a,b}, skip. EVERY template must include {"field":"current_state","kind":"set","value":"<this family\'s to-state>"}. Final-beat templates must also set ending_route and ending_type.';
 
+// Draft-or-live resolution. READS fall back to the LIVE module so agents can study shipped
+// episodes as house-style reference (found live: an MCP author couldn't read Kokugikan to match
+// its shape). WRITES never fall back — live episodes are read-only until a draft is opened.
+function loadRef(store, id) {
+  const draft = store.loadDraft(id);
+  if (draft) return { d: draft, source: 'draft' };
+  const live = store.loadLive(id);
+  if (live) return { d: live, source: 'live' };
+  throw new Error(`no module ${id}`);
+}
+function mustDraft(store, id) {
+  const d = store.loadDraft(id);
+  if (d) return d;
+  if (store.loadLive(id)) throw new Error(`"${id}" is a LIVE episode with no draft — read-only reference (overview/read_doc/validate/test_fill work; editing needs the director to open a draft in the studio)`);
+  throw new Error(`no module ${id}`);
+}
+
 export function toolDefs(id) {
   const T = (name, description, properties, required) => ({
     type: 'function',
@@ -62,11 +79,11 @@ export function toolDefs(id) {
   });
   return [
     T('list_modules', 'List every module (live episodes and drafts): id, title, versions, listed-vs-dev status. Not module-scoped.', {}, []),
-    T('read_doc', 'Read a FULL draft document verbatim: manifest, pack, or lore. Use when the overview summary is not enough (e.g. to see exact template text before editing). For pack, family_from optionally narrows to one beat.', {
+    T('read_doc', 'Read a FULL module document verbatim: manifest, pack, or lore — the draft if one exists, else the LIVE episode (read-only reference; result.source says which). Use when the overview summary is not enough (e.g. exact template text, or studying a shipped episode\'s style). For pack, family_from optionally narrows to one beat.', {
       doc: { type: 'string', enum: ['manifest', 'pack', 'lore'] },
       family_from: { type: 'string', description: 'pack only: return just this beat' },
     }, ['doc']),
-    T('get_module_overview', `Read the current draft of "${id}": manifest, meta, beat chain, template coverage, lore summary, and validation state. ALWAYS call this first.`, {}, []),
+    T('get_module_overview', `Read "${id}": manifest, meta, beat chain, template coverage, lore summary, and validation state. Reads the draft, or the LIVE episode when no draft exists (read-only reference — result.source says which). ALWAYS call this first. Live episodes are great house-style reference: study their shape before authoring.`, {}, []),
     T('set_character', 'Set the protagonist (manifest.character).', {
       name: { type: 'string' }, tagline: { type: 'string', description: 'optional one-line descriptor' },
     }, ['name']),
@@ -120,8 +137,7 @@ export const TOOL_IMPL = {
     return { modules: store.list() };
   },
   read_doc({ store, id, args }) {
-    const d = store.loadDraft(id) || store.loadLive(id);
-    if (!d) throw new Error(`no module ${id}`);
+    const { d, source } = loadRef(store, id);
     const doc = String(args.doc || '');
     if (!['manifest', 'pack', 'lore'].includes(doc)) throw new Error('doc must be manifest|pack|lore');
     let out = d[doc];
@@ -130,15 +146,16 @@ export const TOOL_IMPL = {
       if (!f) throw new Error(`no beat with from=${args.family_from}`);
       out = { meta: { title: out.meta?.title, intents: out.meta?.intents }, family: f };
     }
-    return { doc, content: out ?? null };
+    return { doc, source, content: out ?? null };
   },
   get_module_overview({ store, id }) {
-    const d = store.loadDraft(id);
-    if (!d) throw new Error(`no draft for ${id}`);
+    const { d, source } = loadRef(store, id);
     const pack = DraftStore.mergedPack(d);
     const v = validateModule({ manifest: d.manifest, pack, dirName: id });
     const breaches = Array.isArray(d.pack?.breaches) ? d.pack.breaches : [];
     return {
+      source, // 'draft' = editable; 'live' = shipped episode, read-only reference
+      version: d.manifest?.version ?? null,
       character: d.manifest.character || null,
       title: d.pack?.meta?.title,
       intents: d.pack?.meta?.intents || {},
@@ -158,13 +175,13 @@ export const TOOL_IMPL = {
   },
   set_character({ store, id, args }) {
     if (!String(args.name || '').trim()) throw new Error('name is required');
-    const d = store.loadDraft(id);
+    const d = mustDraft(store, id);
     d.manifest.character = { name: String(args.name), ...(args.tagline ? { tagline: String(args.tagline) } : {}) };
     store.saveDoc(id, 'manifest', d.manifest, d.revs.manifest);
     return { ok: true, character: d.manifest.character };
   },
   set_meta({ store, id, args }) {
-    const d = store.loadDraft(id);
+    const d = mustDraft(store, id);
     d.pack.meta ||= {};
     if (args.title !== undefined) { d.pack.meta.title = String(args.title); d.manifest.title = String(args.title); }
     if (args.voice_example !== undefined) d.pack.meta.voice_example = String(args.voice_example);
@@ -176,13 +193,13 @@ export const TOOL_IMPL = {
   set_intents({ store, id, args }) {
     if (!args.intents || typeof args.intents !== 'object') throw new Error('intents object required');
     if (!args.intents.OTHER) throw new Error('intents must include OTHER (router fallback)');
-    const d = store.loadDraft(id);
+    const d = mustDraft(store, id);
     d.pack.meta.intents = Object.fromEntries(Object.entries(args.intents).map(([k, v]) => [String(k).toUpperCase(), String(v)]));
     store.saveDoc(id, 'pack', d.pack, d.revs.pack);
     return { ok: true, intents: Object.keys(d.pack.meta.intents), note: 'every beat needs a template per intent — check templates_missing in the overview' };
   },
   delete_beat({ store, id, args }) {
-    const d = store.loadDraft(id);
+    const d = mustDraft(store, id);
     const i = Number(args.n) - 1;
     if (!d.pack.families?.[i]) throw new Error(`no beat n=${args.n}`);
     const removed = d.pack.families.splice(i, 1)[0];
@@ -194,7 +211,7 @@ export const TOOL_IMPL = {
     if (!args.from || !args.to || String(args.to) === 'null' || String(args.to) === 'undefined') {
       throw new Error('from and to are both required state names; a terminal state is just the final beat\'s "to" — do not create a beat FOR it');
     }
-    const d = store.loadDraft(id);
+    const d = mustDraft(store, id);
     d.pack.families ||= [];
     const i = Number(args.n) - 1;
     if (i < 0 || i > d.pack.families.length) throw new Error(`n=${args.n} out of range (have ${d.pack.families.length} beats)`);
@@ -211,7 +228,7 @@ export const TOOL_IMPL = {
     return { ok: true, beat: { n: args.n, from: args.from, to: args.to }, templates_present: Object.keys(d.pack.families[i].templates) };
   },
   upsert_template({ store, id, args }) {
-    const d = store.loadDraft(id);
+    const d = mustDraft(store, id);
     const f = (d.pack.families || []).find(x => x.from === args.family_from);
     if (!f) throw new Error(`no beat with from=${args.family_from}`);
     const intent = String(args.intent).toUpperCase();
@@ -236,7 +253,7 @@ export const TOOL_IMPL = {
     return { ok: true, template_id: f.templates[intent].id, remaining_missing: Object.keys(d.pack.meta.intents).filter(i => !f.templates[i]) };
   },
   upsert_lore_entry({ store, id, args }) {
-    const d = store.loadDraft(id);
+    const d = mustDraft(store, id);
     d.lore ||= { lore: { budget_pct: 10, scan_depth: 8, entries: [] }, rails: [] };
     d.lore.lore ||= { budget_pct: 10, scan_depth: 8, entries: [] };
     d.lore.lore.entries ||= [];
@@ -250,20 +267,20 @@ export const TOOL_IMPL = {
     return { ok: true, entries: d.lore.lore.entries.map(e => e.id) };
   },
   set_rails({ store, id, args }) {
-    const d = store.loadDraft(id);
+    const d = mustDraft(store, id);
     d.lore ||= { lore: { budget_pct: 10, scan_depth: 8, entries: [] }, rails: [] };
     d.lore.rails = (args.rails || []).filter(r => r && r.find).map(r => ({ find: String(r.find), replace: String(r.replace ?? ''), flags: String(r.flags ?? 'gi') }));
     store.saveDoc(id, 'lore', d.lore, d.revs.lore);
     return { ok: true, rails: d.lore.rails.length };
   },
   validate({ store, id }) {
-    const d = store.loadDraft(id);
+    const { d, source } = loadRef(store, id);
     const pack = DraftStore.mergedPack(d);
     const { errors, warnings } = validateModule({ manifest: d.manifest, pack, dirName: id });
-    return { errors, warnings: warnings.slice(0, 12), warning_count: warnings.length };
+    return { source, errors, warnings: warnings.slice(0, 12), warning_count: warnings.length };
   },
   async test_fill({ store, id, args }) {
-    const d = store.loadDraft(id);
+    const { d, source } = loadRef(store, id);
     const mod = buildModule(d.manifest, DraftStore.mergedPack(d));
     const family = mod.familyByFrom[String(args.family_from)];
     if (!family) throw new Error(`no beat with from=${args.family_from}`);
@@ -275,7 +292,7 @@ export const TOOL_IMPL = {
     const lore = scanLore(mod.pack, transcript, state, NUM_CTX);
     const gen = await generateBubbles(mod, family, tpl, state, String(args.message), transcript, lore.block);
     const railed = applyRails(mod.pack, gen.bubbles);
-    return { bubbles: railed.bubbles, lore_fired: lore.fired, fallback: !!gen.fallback, ms: gen.ms };
+    return { source, bubbles: railed.bubbles, lore_fired: lore.fired, fallback: !!gen.fallback, ms: gen.ms };
   },
 };
 

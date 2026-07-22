@@ -167,7 +167,15 @@ Small units: ~2 beats' worth of templates per exchange, then validate, FIX what 
 and end your turn with one line on what's next ("next: templates for S03-S04 — say continue").
 The director drives the pace. Call get_module_overview before editing; several tool calls per
 turn is normal; use test_fill when a frame's quality matters. Finish each turn by saying
-plainly what changed and what's still missing:
+plainly what changed and what's still missing.
+
+STUDY THE SHIPPED WORK: live episodes without a draft are readable as reference — overview,
+read_doc, validate, and test_fill all fall back to the live files and mark the result
+source:"live". Before authoring a new module, read a live episode's shape (beat count,
+bubbles-per-beat, template texture) and match the house standard unless the director says
+otherwise. Editing a live episode still requires the director to open a draft.
+
+Example turn-end report:
 
     "wrote INVESTIGATE + HOLD_BACK for S02 (staged the basement binary), planted hum-plant /
      hum-payoff seed pair, validate: 0 errors 2 warnings (todo templates on S03).

@@ -43,6 +43,22 @@ ok('scaffold draft created', !!store.loadDraft(ID));
   ok('overview: validation errors surfaced', o.validation.errors > 0);
 }
 
+// ------------------------------------------------- live-only reference -----
+// Found live: an MCP author couldn't read Kokugikan (live, no draft) to match house style.
+// Reads fall back to the live module tagged source:'live'; writes refuse with guidance.
+{
+  const LIVE = 'yuki-kokugikan-ep1'; // real shipped episode; no draft in the scratch store
+  const o = TOOL_IMPL.get_module_overview({ store, id: LIVE, args: {} });
+  ok('live fallback: overview reads the shipped episode', o.source === 'live' && o.beats.length > 0 && !!o.version);
+  const rd = TOOL_IMPL.read_doc({ store, id: LIVE, args: { doc: 'manifest' } });
+  ok('live fallback: read_doc tagged source:live', rd.source === 'live' && rd.content?.id === LIVE);
+  const v = TOOL_IMPL.validate({ store, id: LIVE, args: {} });
+  ok('live fallback: validate runs on the live episode', v.source === 'live' && Array.isArray(v.errors));
+  throws('live-only write refused with reference guidance', () => TOOL_IMPL.set_meta({ store, id: LIVE, args: { title: 'nope' } }), 'read-only reference');
+  throws('unknown module still a clean error', () => TOOL_IMPL.get_module_overview({ store, id: 'no-such-module-xyz', args: {} }), 'no module');
+  ok('draft overview still tagged source:draft', run('get_module_overview').source === 'draft');
+}
+
 // ---------------------------------------------------------- set_* tools -----
 {
   const r = run('set_character', { name: 'Testa', tagline: 'suite protagonist' });
