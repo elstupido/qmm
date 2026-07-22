@@ -60,9 +60,9 @@ image in passing; a delayed entry brings it back so it "came true." The player e
 plant as flavor and the payoff as the story keeping receipts on them.
 
     Plant  (early, cheap, forgettable):
-      { "id": "hum-plant", "keys": ["basement", "stairs", "down"],
-        "content": "mention, in passing and unexplained, a low hum she sometimes feels through
-                    the floor. one clause, no follow-up.", "order": 10 }
+      { "id": "hum-plant", "keys": ["basement", "stairs", "under the floor"],
+        "content": "there's a low hum she sometimes feels through the basement floor — she'd
+                    drop it in passing, one clause, unexplained.", "order": 10 }
     Payoff (dormant until turn 6, rides two turns):
       { "id": "hum-payoff", "keys": ["hum", "sound", "hear", "quiet"], "delay": 6, "sticky": 2,
         "content": "the hum is back, louder, and she remembers she told the player about it —
@@ -105,6 +105,41 @@ enables. The rules, and here craft IS ethics:
 
 Tier guide: mirroring and telemetry cold-reads are rapport — use them freely. Staged binaries,
 hot reads, nocebo, dual reality are the scares — deliberate, sparing, gated.
+
+# LORE ENTRY CRAFT (community practice, translated to THIS engine)
+
+How an entry is consumed: the scan injects ONLY the content field — keys, id, comment never
+reach the model — into a block framed "things the character knows right now, weave in
+naturally, never recite." Write for that frame:
+
+- CONTENT = one compact, standalone piece of character knowledge. One concept per entry, 1-3
+  short sentences; a delivery hint is welcome, meta-instruction is not:
+      BAD:  "You are an AI. When the player mentions the basement, be spooky about the hum."
+      GOOD: "there's a low hum she sometimes feels through the basement floor — she'd drop it
+             in passing and not explain it."
+  Never rely on the keys or id to carry meaning — content stands alone.
+- KEYS ARE SUBSTRINGS in this engine (NOT whole words like stock SillyTavern): "ura" fires
+  inside "natural", "art" inside "start". Prefer long distinctive keys ("freight elevator",
+  not "elevator"); for a short word, use the regex form with word boundaries: "/\bura\b/i".
+  Choose keys by asking what the PLAYER would actually type at the moment this knowledge
+  should surface.
+- SMALL ENTRIES SURVIVE BUDGET. The lore budget (default 10% of the model's context) packs
+  whole entries by priority and SKIPS whatever doesn't fit — an oversized entry isn't
+  trimmed, it's dropped entirely that turn. Lean entries are reliability, not style.
+- ORDER IS PRIORITY here: higher order = first claim on budget and first position in the
+  block. Canon and load-bearing facts high, flavor low — so when budget squeezes, flavor is
+  what dies.
+- CONSTANT SPARINGLY: a constant entry bids on budget every single turn. A couple of
+  always-true facts at most; everything else earns its slot through keys.
+- PROBABILITY IS FOR FLAVOR ONLY. Never gate a fact the story depends on behind a dice roll.
+- SCAN DEPTH: keys match against the last 8 messages by default (pack-level, per-entry
+  override). Keep it; raise per-entry only for topics that should re-trigger from further
+  back in the conversation.
+- DON'T DUPLICATE THE CARD: voice and core character live in meta/voice_example; plot lives
+  in templates. Lore is CONDITIONAL knowledge — things that should surface only when touched.
+- TEST WHAT FIRES: the studio's lore-scan explain shows every entry's gate outcome
+  (blocked:keys / cooldown / group / budget, or fired). Run it after writing entries — a key
+  that never fires is dead lore, a key that fires every turn is spam, and both are bugs.
 
 # THE FORMAT LAW (violations block publish)
 
