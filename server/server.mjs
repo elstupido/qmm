@@ -1,22 +1,24 @@
 #!/usr/bin/env node
-// QMM player server — zero-dependency Node. Serves the phone UI + the story API.
+// QMM backend — zero-dependency Node. The channel-agnostic story API (no UI, no channel code).
 // Stories are pluggable MODULES (modules/<id>/{manifest,pack}.json). State is SERVER-OWNED:
 // a session = (user_id, module_id) held in server/sessions.mjs, shared across every channel
 // (web, app, Telegram) so one logged-in user keeps a consistent story wherever they play.
 //
 // The turn loop itself lives in server/engine.mjs (shared with the authoring studio); this file
-// is the HTTP shell: module registry (+ hot reload), sessions wiring, flight log, static files.
+// is the HTTP shell: module registry (+ hot reload), sessions wiring, flight log. Channels
+// (qmm-web, qmm-android, qmm-telegram) are SEPARATE programs that talk to this API — never mixed in.
 
 import { createServer } from 'node:http';
-import { readFileSync, existsSync, statSync, appendFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, existsSync, statSync, appendFileSync, mkdirSync, readdirSync } from 'node:fs';
 import { join, normalize, extname, dirname } from 'node:path';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { loadSession, saveSession, newSession, getOrCreate, clearSession } from './sessions.mjs';
 import { resolveMacros } from './lore.mjs';
 import { OLLAMA, MODEL, NUM_CTX, loadModules, ollamaChat, freshState, runTurn, runNudge } from './engine.mjs';
+import { registerStory, releaseStory, activateStory, loadStory } from './stories.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const PUBLIC = join(here, '..', 'public');
 const MODULES_DIR = join(here, '..', 'modules');
 
 const PORT = parseInt(process.env.PORT || '8791', 10);
@@ -62,19 +64,10 @@ function sanitizeTranscript(t) {
   })).filter(m => m.text);
 }
 
-// Whitelist an app-pushed state object: plain, bounded keys/values (never trust a client blindly).
-function sanitizeState(s) {
-  const out = {};
-  if (!s || typeof s !== 'object') return out;
-  let n = 0;
-  for (const [k, v] of Object.entries(s)) {
-    if (n++ >= 60) break;
-    if (!/^[a-z_][a-z0-9_]{0,60}$/i.test(k)) continue;
-    if (typeof v === 'string') out[k] = v.slice(0, 300);
-    else if (typeof v === 'number' || typeof v === 'boolean' || v === null) out[k] = v;
-  }
-  return out;
-}
+// NOTE deliberately NO per-key state whitelist on pushes: v0.2 engine state is NESTED
+// (lore_fx = {last, stickyUntil, cooldownUntil, groupCanon}) and a flat whitelist silently
+// strips it, killing equivoque canon + timed-effect clocks across channels (ENGINE_CONTRACT
+// v0.2). Bounding = the 256KB body cap + MAX_TRANSCRIPT in sessions.mjs.
 
 // Resolve (user_id, module_id) from a request body. module defaults to the only/first module.
 function resolveIds(body) {
@@ -102,16 +95,22 @@ function sendJson(res, code, obj) {
   res.end(buf);
 }
 
-function serveStatic(res, urlPath) {
-  let p = urlPath === '/' ? '/index.html' : urlPath;
-  p = normalize(p).replace(/^([.\\/])+/, '');
-  const file = join(PUBLIC, p);
-  if (!file.startsWith(PUBLIC) || !existsSync(file) || !statSync(file).isFile()) {
-    res.writeHead(404, { 'content-type': 'text/plain' }); res.end('not found'); return;
-  }
-  const body = readFileSync(file);
-  res.writeHead(200, { 'content-type': MIME[extname(file)] || 'application/octet-stream', 'content-length': body.length, 'cache-control': 'no-store' });
-  res.end(body);
+// Inventory a module's asset files (relative forward-slash paths) so a downloader can know
+// what to fetch — the bundle and export both carry this list.
+function listModuleAssets(id) {
+  const base = join(MODULES_DIR, id, 'assets');
+  if (!existsSync(base)) return [];
+  const out = [];
+  const walk = (dir, rel) => {
+    for (const name of readdirSync(dir)) {
+      const p = join(dir, name);
+      const r = rel ? `${rel}/${name}` : name;
+      if (statSync(p).isDirectory()) walk(p, r);
+      else out.push(r);
+    }
+  };
+  walk(base, '');
+  return out;
 }
 
 // Serve a downloaded module's asset (image/audio) — path-safe under modules/<id>/assets/.
@@ -157,14 +156,40 @@ const server = createServer(async (req, res) => {
     if (req.method === 'GET' && path === '/api/modules') {
       return sendJson(res, 200, { modules: Object.values(REGISTRY.modules).filter(m => m.manifest.publish !== false).map(m => m.manifest), default: DEFAULT_MODULE });
     }
-    // download a module for install: full bundle {manifest, pack}, or an asset under it — how the
-    // on-device app (or any client) fetches a served episode. Entitlement gating: TODO (open for now).
+    // download a module — how the on-device app (or any client) fetches an episode:
+    //   /api/modules/<id>            bundle {manifest, pack (lore merged in), assets:[paths]} — for RUNNING
+    //   /api/modules/<id>/export     sideload/sync artifact: the RAW doc files verbatim (lore stays a
+    //                                sidecar) + assets base64 + sha256 of every byte shipped — unpacks
+    //                                back into the on-disk module format byte-identical
+    //   /api/modules/<id>/assets/**  one asset
+    // publish:false modules are UNLISTED (hidden from the catalog above), NOT locked: the content ships
+    // in a public repo anyway, so download-gating dev modules would be theater — direct fetch by id is
+    // the intended sideload path. Entitlement gating (paid episodes): TODO when paid content exists.
     if (req.method === 'GET' && path.startsWith('/api/modules/')) {
       const parts = path.slice('/api/modules/'.length).split('/').filter(Boolean);
       const id = decodeURIComponent(parts[0] || '');
       const m = getModule(id);
       if (!m) return sendJson(res, 404, { error: 'unknown_module', detail: id });
-      if (parts.length === 1) return sendJson(res, 200, { manifest: m.manifest, pack: m.pack });
+      if (parts.length === 1) return sendJson(res, 200, { manifest: m.manifest, pack: m.pack, assets: listModuleAssets(m.id) });
+      if (parts.length === 2 && parts[1] === 'export') {
+        const mdir = join(MODULES_DIR, m.id);
+        const files = {}, sha256 = {};
+        for (const f of [...new Set(['manifest.json', m.manifest.pack || 'pack.json', m.manifest.lore || 'lore.json'])]) {
+          const p = join(mdir, f);
+          if (!existsSync(p)) continue;
+          const buf = readFileSync(p);
+          files[f] = buf.toString('utf8');
+          sha256[f] = createHash('sha256').update(buf).digest('hex');
+        }
+        if (!files['manifest.json']) return sendJson(res, 404, { error: 'module_files_missing', detail: m.id });
+        const assets = {};
+        for (const rel of listModuleAssets(m.id)) {
+          const buf = readFileSync(join(mdir, 'assets', rel));
+          assets[rel] = buf.toString('base64');
+          sha256[`assets/${rel}`] = createHash('sha256').update(buf).digest('hex');
+        }
+        return sendJson(res, 200, { id: m.id, version: m.manifest.version || '0.0.0', files, assets, sha256 });
+      }
       if (parts[1] === 'assets' && parts.length >= 3) return serveModuleAsset(res, id, parts.slice(2).map(decodeURIComponent).join('/'));
       return sendJson(res, 404, { error: 'not_found' });
     }
@@ -242,6 +267,76 @@ const server = createServer(async (req, res) => {
       return sendJson(res, 200, { seq: sess.seq, was_conflict: wasConflict });
     }
 
+    // ---- cross-channel handoff (story-chat-id) --------------------------------------------------
+    // The fiction — not the user — moves a story between channels. One channel is primary at a time;
+    // it owns the story locally, then REGISTER / RELEASE / ACTIVATE pass the baton. No per-message sync.
+
+    // REGISTER (purple): a channel starts a new cross-channel story. Returns the scid + cold open.
+    if (req.method === 'POST' && path === '/api/register') {
+      const body = await readBody(req);
+      const ctx = reqCtx(req, body);
+      const { userId, moduleId } = resolveIds(body);
+      if (!userId) return sendJson(res, 400, { error: 'no_user' });
+      const mod = getModule(moduleId);
+      if (!mod) return sendJson(res, 400, { error: 'unknown_module', detail: moduleId });
+      const st = freshState(mod);
+      const cold = mod.meta.cold_open.map(t => resolveMacros(t, st.macro_seed));
+      const s = registerStory({ user_id: userId, module_id: moduleId, channel: ctx.channel, state: st, transcript: cold.map(t => ({ who: 'yuki', text: t })) });
+      qlog({ kind: 'story_register', ...ctx, story_chat_id: s.story_chat_id, user_id: userId, module_id: moduleId });
+      return sendJson(res, 200, { story_chat_id: s.story_chat_id, state: s.state, cold_open: cold, module_id: moduleId, title: mod.meta.title, seq: s.seq, primary_channel: s.primary_channel });
+    }
+
+    // RELEASE (yellow): the primary channel ships its full state + history and names the next channel.
+    // Also the timeout/error path (error set). Full state is stored as-is (nested lore_fx preserved),
+    // size-guarded rather than key-whitelisted.
+    if (req.method === 'POST' && path === '/api/release') {
+      const body = await readBody(req);
+      const ctx = reqCtx(req, body);
+      const scid = String(body.story_chat_id || '').slice(0, 80);
+      if (!scid) return sendJson(res, 400, { error: 'no_story_chat_id' });
+      let state;
+      if (body.state !== undefined) {
+        if (typeof body.state !== 'object' || body.state === null) return sendJson(res, 400, { error: 'bad_state' });
+        if (JSON.stringify(body.state).length > 64 * 1024) return sendJson(res, 400, { error: 'state_too_large' });
+        state = body.state;
+      }
+      const transcript = body.transcript !== undefined ? sanitizeTranscript(body.transcript) : undefined;
+      const next_channel = body.next_channel ? String(body.next_channel).slice(0, 24) : null;
+      const error = body.error ? String(body.error).slice(0, 300) : null;
+      const r = releaseStory(scid, { channel: ctx.channel, state, transcript, next_channel, error });
+      if (!r.ok) return sendJson(res, 404, { error: r.reason });
+      qlog({ kind: 'story_release', ...ctx, story_chat_id: scid, next_channel, error, seq: r.story.seq });
+      return sendJson(res, 200, { ok: true, story_chat_id: scid, released: true, next_channel, seq: r.story.seq });
+    }
+
+    // ACTIVATE (green): a channel claims a released story and gets the state + history to continue.
+    if (req.method === 'GET' && path === '/api/activate') {
+      const scid = String(q.get('story_chat_id') || '').slice(0, 80);
+      const channel = String(q.get('channel') || 'web').slice(0, 24);
+      if (!scid) return sendJson(res, 400, { error: 'no_story_chat_id' });
+      const r = activateStory(scid, channel);
+      if (!r.ok) {
+        qlog({ kind: 'story_activate_denied', story_chat_id: scid, channel, reason: r.reason });
+        return sendJson(res, 200, { activated: false, reason: r.reason, next_channel: r.next_channel, primary_channel: r.primary_channel });
+      }
+      const s = r.story;
+      qlog({ kind: 'story_activate', story_chat_id: scid, channel, seq: s.seq });
+      return sendJson(res, 200, { activated: true, story_chat_id: scid, state: s.state, transcript: s.transcript, seq: s.seq, module_id: s.module_id, title: getModule(s.module_id)?.meta.title });
+    }
+
+    // pull a story by scid — the shared cross-channel truth (read-only).
+    if (req.method === 'GET' && path === '/api/story') {
+      const scid = String(q.get('story_chat_id') || '').slice(0, 80);
+      if (!scid) return sendJson(res, 400, { error: 'no_story_chat_id' });
+      const s = loadStory(scid);
+      if (!s) return sendJson(res, 200, { exists: false });
+      return sendJson(res, 200, {
+        exists: true, story_chat_id: s.story_chat_id, state: s.state, transcript: s.transcript, seq: s.seq,
+        module_id: s.module_id, title: getModule(s.module_id)?.meta.title,
+        primary_channel: s.primary_channel, released: s.released, next_channel: s.next_channel, updated_at: s.updated_at,
+      });
+    }
+
     if (req.method === 'POST' && path === '/api/turn') {
       const body = await readBody(req);
       const out = await runTurn(playerDeps, body, reqCtx(req, body));
@@ -265,8 +360,11 @@ const server = createServer(async (req, res) => {
       console.log(`[waiver] signed: ${String(body.name || '').slice(0, 60)}`);
       return sendJson(res, 200, { ok: true });
     }
-    if (req.method === 'GET' || req.method === 'HEAD') return serveStatic(res, path);
-    res.writeHead(405); res.end();
+    // No UI here — this is the channel-agnostic backend. Channel adapters serve the player.
+    if (req.method === 'GET' && path === '/') {
+      return sendJson(res, 200, { service: 'qmm-backend', hint: 'channel-agnostic story API — use a channel adapter (qmm-web / qmm-android / qmm-telegram) for a UI', modules: Object.keys(REGISTRY.modules) });
+    }
+    return sendJson(res, 404, { error: 'not_found', path });
   } catch (e) {
     console.error(`[err] ${req.method} ${path}: ${e.stack || e}`);
     qlog({ kind: 'error', path, method: req.method, error: String(e.message || e), stack: String(e.stack || '').slice(0, 2000) });

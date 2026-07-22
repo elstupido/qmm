@@ -32,3 +32,6 @@ design/session-notes-*.md
 # Local-only design notes — kept out of the shared repo.
 design/ethics-and-safety.md
 design/idea-true-crime-insertion.md
+
+# Cross-channel story records (story-chat-id): state + transcripts + handoff history. Player data; never commit.
+stories/
