@@ -147,5 +147,33 @@ const t = (who, text) => ({ who, text });
   ok('rails never blank the character (all-dead -> originals)', r2.bubbles[0] === 'something');
 }
 
+// --- 10. turn-0 nudge (the sticky regression) --------------------------------
+// A nudge scans WITHOUT incrementing turn, so the cold-open silence nudge scans at turn 0 with
+// an empty lore_fx. A never-fired entry must not read as sticky there: `(undefined || 0) >= 0`
+// used to be true, which made every entry sticky at turn 0 — bypassing delay, cooldown and the
+// equivoque group lock, so the first group member claimed canon before the player said a word.
+{
+  const state = { turn: 0, lore_fx: freshLoreFx() };
+  const r = scanLore(pack, [t('yuki', 'are you awake?')], state, CTX);
+  ok('turn-0 nudge: delay still blocks', !r.fired.includes('late-scrape'));
+  ok('turn-0 nudge: unmatched keys do not fire', !r.fired.includes('ura-knees'));
+  ok('turn-0 nudge: equivoque canon not burned', !state.lore_fx.groupCanon.coldspot);
+  ok('turn-0 nudge: at most one of an equivoque group',
+    r.fired.filter(id => id === 'cold-draft' || id === 'cold-breath').length <= 1);
+  ok('turn-0 nudge: constants still fire', r.fired.includes('const-setting'));
+}
+
+// --- 11. sticky still works when it HAS fired --------------------------------
+// The turn-0 guard must not break real stickiness: a genuine fire keeps the entry active for
+// `sticky` turns even once its keys stop matching.
+{
+  const state = { turn: 1, lore_fx: freshLoreFx() };
+  const r1 = scanLore(pack, [t('user', 'there is a smell in here')], state, CTX);
+  ok('sticky entry fires on its key', r1.fired.includes('stick-copper'));
+  state.turn = 2;
+  const r2 = scanLore(pack, [t('user', 'nothing relevant here')], state, CTX);
+  ok('sticky keeps it active without the key', r2.fired.includes('stick-copper'));
+}
+
 console.log(failures === 0 ? '\nALL GREEN' : `\n${failures} FAILURE(S)`);
 process.exit(failures === 0 ? 0 : 1);

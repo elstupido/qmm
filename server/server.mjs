@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url';
 import { loadSession, saveSession, newSession, getOrCreate, clearSession } from './sessions.mjs';
 import { resolveMacros } from './lore.mjs';
 import { OLLAMA, MODEL, NUM_CTX, loadModules, ollamaChat, freshState, runTurn, runNudge } from './engine.mjs';
-import { registerStory, releaseStory, activateStory, loadStory } from './stories.mjs';
+import { registerStory, releaseStory, activateStory, loadStory, stopStory, checkpointStory, listStories } from './stories.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const MODULES_DIR = join(here, '..', 'modules');
@@ -279,11 +279,71 @@ const server = createServer(async (req, res) => {
       if (!userId) return sendJson(res, 400, { error: 'no_user' });
       const mod = getModule(moduleId);
       if (!mod) return sendJson(res, 400, { error: 'unknown_module', detail: moduleId });
-      const st = freshState(mod);
-      const cold = mod.meta.cold_open.map(t => resolveMacros(t, st.macro_seed));
-      const s = registerStory({ user_id: userId, module_id: moduleId, channel: ctx.channel, state: st, transcript: cold.map(t => ({ who: 'yuki', text: t })) });
-      qlog({ kind: 'story_register', ...ctx, story_chat_id: s.story_chat_id, user_id: userId, module_id: moduleId });
-      return sendJson(res, 200, { story_chat_id: s.story_chat_id, state: s.state, cold_open: cold, module_id: moduleId, title: mod.meta.title, seq: s.seq, primary_channel: s.primary_channel });
+      // ADOPTION: a story started offline on-device can be handed an scid by passing its state
+      // (+ transcript) here, instead of the server minting a fresh one. Merged over freshState so
+      // a client missing v0.2 keys (turn / macro_seed / lore_fx) still gets sane defaults.
+      const adopting = body.state !== undefined;
+      if (adopting) {
+        if (typeof body.state !== 'object' || body.state === null) return sendJson(res, 400, { error: 'bad_state' });
+        if (JSON.stringify(body.state).length > 64 * 1024) return sendJson(res, 400, { error: 'state_too_large' });
+      }
+      const st = adopting ? { ...freshState(mod), ...body.state } : freshState(mod);
+      // An adopted story is mid-flight: it already had its cold open, so don't re-send one.
+      const cold = adopting ? [] : mod.meta.cold_open.map(t => resolveMacros(t, st.macro_seed));
+      const transcript = adopting
+        ? sanitizeTranscript(body.transcript || [])
+        : cold.map(t => ({ who: 'yuki', text: t }));
+      const s = registerStory({ user_id: userId, module_id: moduleId, channel: ctx.channel, state: st, transcript });
+      qlog({ kind: 'story_register', ...ctx, story_chat_id: s.story_chat_id, user_id: userId, module_id: moduleId, adopted: adopting, transcript_len: transcript.length });
+      return sendJson(res, 200, { story_chat_id: s.story_chat_id, state: s.state, cold_open: cold, adopted: adopting, module_id: moduleId, title: mod.meta.title, seq: s.seq, primary_channel: s.primary_channel });
+    }
+
+    // STOP (the ethics floor): end a story everywhere, terminally. Any channel may call it; the
+    // scid is tombstoned so no channel can release/activate/checkpoint it again. THE WORD spans
+    // keying schemes too — the (user, module) session behind the story is cleared in the same
+    // move, so a stopped playthrough can't be resumed through the older session flow either.
+    if (req.method === 'POST' && path === '/api/stop') {
+      const body = await readBody(req);
+      const ctx = reqCtx(req, body);
+      const scid = String(body.story_chat_id || '').slice(0, 80);
+      if (!scid) return sendJson(res, 400, { error: 'no_story_chat_id' });
+      const r = stopStory(scid, { channel: ctx.channel });
+      if (!r.ok) return sendJson(res, 404, { error: r.reason });
+      const st = r.story;
+      if (st.user_id && st.module_id) clearSession(st.user_id, st.module_id);
+      qlog({ kind: 'story_stop', ...ctx, story_chat_id: scid, user_id: st.user_id, module_id: st.module_id, already: !!r.already });
+      console.log(`[STOP] story=${scid} user=${st.user_id || '?'}`);
+      return sendJson(res, 200, { ok: true, story_chat_id: scid, stopped: true, already: !!r.already });
+    }
+
+    // CHECKPOINT: the primary channel saves progress without releasing the baton (fire-and-forget
+    // after a turn). Gives the backend visibility into a live on-device playthrough.
+    if (req.method === 'POST' && path === '/api/story/checkpoint') {
+      const body = await readBody(req);
+      const ctx = reqCtx(req, body);
+      const scid = String(body.story_chat_id || '').slice(0, 80);
+      if (!scid) return sendJson(res, 400, { error: 'no_story_chat_id' });
+      let state;
+      if (body.state !== undefined) {
+        if (typeof body.state !== 'object' || body.state === null) return sendJson(res, 400, { error: 'bad_state' });
+        if (JSON.stringify(body.state).length > 64 * 1024) return sendJson(res, 400, { error: 'state_too_large' });
+        state = body.state;
+      }
+      const transcript = body.transcript !== undefined ? sanitizeTranscript(body.transcript) : undefined;
+      const r = checkpointStory(scid, { channel: ctx.channel, state, transcript });
+      if (!r.ok) return sendJson(res, r.reason === 'unknown_story' ? 404 : 409, { error: r.reason, primary_channel: r.primary_channel, next_channel: r.next_channel });
+      return sendJson(res, 200, { ok: true, story_chat_id: scid, seq: r.story.seq });
+    }
+
+    // DISCOVERY: a channel asks which of a user's stories exist / which it may claim. Without
+    // this a channel can only activate an scid it already remembers, so a story released to a
+    // channel that never saw it would be unreachable.
+    if (req.method === 'GET' && path === '/api/stories') {
+      const userId = String(q.get('user_id') || q.get('uid') || '').slice(0, 80);
+      if (!userId) return sendJson(res, 400, { error: 'no_user' });
+      const claimableBy = q.get('claimable_by') ? String(q.get('claimable_by')).slice(0, 24) : null;
+      const rows = listStories({ user_id: userId, claimable_by: claimableBy });
+      return sendJson(res, 200, { stories: rows.map(r => ({ ...r, title: getModule(r.module_id)?.meta.title })) });
     }
 
     // RELEASE (yellow): the primary channel ships its full state + history and names the next channel.
@@ -330,6 +390,9 @@ const server = createServer(async (req, res) => {
       if (!scid) return sendJson(res, 400, { error: 'no_story_chat_id' });
       const s = loadStory(scid);
       if (!s) return sendJson(res, 200, { exists: false });
+      // A stopped story reports as terminal, never as playable state — the client polling this
+      // is how a channel that wasn't holding the baton learns THE WORD was said.
+      if (s.stopped) return sendJson(res, 200, { exists: true, story_chat_id: s.story_chat_id, stopped: true, stopped_at: s.stopped_at });
       return sendJson(res, 200, {
         exists: true, story_chat_id: s.story_chat_id, state: s.state, transcript: s.transcript, seq: s.seq,
         module_id: s.module_id, title: getModule(s.module_id)?.meta.title,

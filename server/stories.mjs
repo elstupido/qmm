@@ -14,7 +14,7 @@
 // atomic writes, zero dependencies. On timeout the backend just HOLDS the released story: there is
 // no auto-reroute (a dead channel is designed silence, not a system routing around it).
 
-import { readFileSync, writeFileSync, renameSync, existsSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, renameSync, existsSync, mkdirSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
@@ -68,6 +68,7 @@ export function registerStory({ user_id, module_id, channel, state, transcript }
 export function releaseStory(scid, { channel, state, transcript, next_channel, error }) {
   const s = loadStory(scid);
   if (!s) return { ok: false, reason: 'unknown_story' };
+  if (s.stopped) return { ok: false, reason: 'stopped' };
   if (state !== undefined) s.state = state;
   if (Array.isArray(transcript)) s.transcript = transcript;
   s.primary_channel = null;
@@ -83,6 +84,7 @@ export function releaseStory(scid, { channel, state, transcript, next_channel, e
 export function activateStory(scid, channel) {
   const s = loadStory(scid);
   if (!s) return { ok: false, reason: 'unknown_story' };
+  if (s.stopped) return { ok: false, reason: 'stopped' };
   if (!s.released) return { ok: false, reason: 'not_released', primary_channel: s.primary_channel };
   if (s.next_channel && s.next_channel !== channel) return { ok: false, reason: 'not_targeted', next_channel: s.next_channel };
   s.primary_channel = channel;
@@ -90,4 +92,68 @@ export function activateStory(scid, channel) {
   s.next_channel = null;
   note(s, 'activate', channel);
   return { ok: true, story: saveStory(s) };
+}
+
+// STOP — THE WORD, and the ethics floor. Terminal and irreversible.
+//
+// The playthrough is renamed aside (same discipline as clearSession: off the live path, not
+// hard-deleted) and a TOMBSTONE is left at the canonical path carrying no state and no
+// transcript. The tombstone is why every later move answers `stopped` instead of
+// `unknown_story` — a stopped scid must be unmistakably OVER rather than merely missing, so no
+// channel can release, activate, or checkpoint it back into play. Register is unaffected by
+// design: it mints a fresh scid, and a new story after STOP is a new story.
+export function stopStory(scid, { channel } = {}) {
+  const s = loadStory(scid);
+  if (!s) return { ok: false, reason: 'unknown_story' };
+  if (s.stopped) return { ok: true, already: true, story: s };
+  const f = fileFor(scid);
+  // Move the record aside FIRST: if this process dies mid-stop the story is already out of play.
+  try { if (existsSync(f)) renameSync(f, `${f}.stopped-${Date.now()}`); } catch { /* ignore */ }
+  const tomb = {
+    story_chat_id: s.story_chat_id, user_id: s.user_id || null, module_id: s.module_id || null,
+    state: {}, transcript: [],
+    primary_channel: null, released: false, next_channel: null, last_error: null,
+    stopped: true, stopped_at: new Date().toISOString(), stopped_by_channel: channel || null,
+    history: s.history || [], seq: s.seq || 0, created_at: s.created_at || null,
+  };
+  note(tomb, 'stop', channel);
+  return { ok: true, story: saveStory(tomb) };
+}
+
+// CHECKPOINT: the PRIMARY channel updates state + transcript in place without giving up the
+// baton, so the backend can see a live playthrough between handoffs. Deliberately writes no
+// history entry — the app fires this after every turn and it would drown the audit trail.
+export function checkpointStory(scid, { channel, state, transcript }) {
+  const s = loadStory(scid);
+  if (!s) return { ok: false, reason: 'unknown_story' };
+  if (s.stopped) return { ok: false, reason: 'stopped' };
+  if (s.released) return { ok: false, reason: 'released', next_channel: s.next_channel };
+  if (channel && s.primary_channel && channel !== s.primary_channel) {
+    return { ok: false, reason: 'not_primary', primary_channel: s.primary_channel };
+  }
+  if (state !== undefined) s.state = state;
+  if (Array.isArray(transcript)) s.transcript = transcript;
+  return { ok: true, story: saveStory(s) };
+}
+
+// DISCOVERY: which stories does this user have, and which can a given channel claim? A channel
+// can only activate an scid it already knows, so a story released TO a channel that has never
+// seen it would otherwise be invisible. Stopped stories are omitted — not claimable, not
+// playable. (Aside files don't end in .json, so they're skipped for free.)
+export function listStories({ user_id, claimable_by } = {}) {
+  let names;
+  try { names = readdirSync(DIR).filter(n => n.endsWith('.json')); } catch { return []; }
+  const out = [];
+  for (const n of names) {
+    let s;
+    try { s = JSON.parse(readFileSync(join(DIR, n), 'utf8')); } catch { continue; }
+    if (!s || s.stopped) continue;
+    if (user_id && s.user_id !== user_id) continue;
+    if (claimable_by && !(s.released && (!s.next_channel || s.next_channel === claimable_by))) continue;
+    out.push({
+      story_chat_id: s.story_chat_id, module_id: s.module_id, primary_channel: s.primary_channel,
+      released: !!s.released, next_channel: s.next_channel || null, seq: s.seq || 0, updated_at: s.updated_at,
+    });
+  }
+  return out.sort((a, b) => String(b.updated_at || '').localeCompare(String(a.updated_at || '')));
 }

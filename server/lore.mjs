@@ -123,13 +123,22 @@ export function scanLore(pack, transcript, state, ctxTokens, trace = null) {
   for (const e of cfg.entries) {
     if (!e || e.enabled === false || !e.id || !e.content) continue;
 
-    // sticky: fired recently enough that it stays active regardless of keys
-    const sticky = (fx.stickyUntil[e.id] || 0) >= turn;
+    // sticky: fired recently enough that it stays active regardless of keys.
+    // The `!== undefined` guard is load-bearing: a NEVER-FIRED entry has no stickyUntil, and
+    // `(undefined || 0) >= 0` is true — which made every entry sticky on turn 0, bypassing its
+    // delay/cooldown/group gates. Nudges scan without incrementing turn, so the cold-open
+    // silence nudge (nearly every session's first beat) fired the whole lorebook and let the
+    // first member of an equivoque group claim groupCanon before the player said a word.
+    const sticky = fx.stickyUntil[e.id] !== undefined && fx.stickyUntil[e.id] >= turn;
     if (sticky) viaSticky.add(e.id);
 
     if (!sticky) {
       if ((Number(e.delay) || 0) > turn) { note(e.id, 'blocked:delay', { until_turn: Number(e.delay) }); continue; }
-      if ((fx.cooldownUntil[e.id] || 0) >= turn) { note(e.id, 'blocked:cooldown', { until_turn: fx.cooldownUntil[e.id] }); continue; }
+      // Same `!== undefined` guard as sticky, and for the same reason: an entry that has never
+      // fired has no cooldown, but `(undefined || 0) >= 0` reads as on-cooldown at turn 0. This
+      // one was MASKED by the sticky bug (everything was sticky at turn 0, so this block never
+      // ran); fixing sticky alone would have silenced constants on the cold-open nudge.
+      if (fx.cooldownUntil[e.id] !== undefined && fx.cooldownUntil[e.id] >= turn) { note(e.id, 'blocked:cooldown', { until_turn: fx.cooldownUntil[e.id] }); continue; }
       if (e.group && fx.groupCanon[e.group] && fx.groupCanon[e.group] !== e.id) { note(e.id, 'blocked:group', { canon: fx.groupCanon[e.group] }); continue; } // lost the equivoque
 
       if (!e.constant) {
