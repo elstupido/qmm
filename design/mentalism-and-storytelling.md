@@ -1,5 +1,14 @@
 # QMM — Mentalism & Storytelling
 
+> **UPDATE (2026-07-22): every technique below now has DIEGETIC COVER.** The app-wide premise
+> (`premise-and-branding.md`) says QMM connects the player to a reflection of themselves,
+> matched on similar emotional/physical state, across a fixed block universe. So: mirroring is
+> the reflection showing; hot reading is the matching criterion doing its job; equivoque is the
+> block universe being already-written; dual reality is two branches leaking. The seams stopped
+> being liabilities — the player is *supposed* to wonder whether the app is real. Read this doc
+> as the technique manual and the premise doc as the excuse that makes each technique legal
+> in-fiction.
+
 ## Thesis
 An LLM-driven, consenting, text-message horror game is the strongest mentalism instrument
 ever built, for two reasons:

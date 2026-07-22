@@ -1,9 +1,16 @@
-# QMM — Quantum Murder Mysteries demo
+# QMM — Quantum Media Messenger
 
-A murder mystery told entirely as a text-message conversation. You text Yuki; a local
-LLM (`gemma4:e4b` in ollama) classifies each of your texts into one of 8 intents, picks
-the matching authored response template for the current story beat, and writes Yuki's
-reply in-voice. Seven beats, 48 templates, 8 unique endings.
+QMM is a messenger app by ACME Co. that connects you to another person "in a similar
+emotional or physical state" — technically, a reflection of you transformed over the
+eigenvector embeddings of the block universe. They are somewhere sideways: another branch,
+another history, something other. The government that developed QMM does not know it has
+been released. That is the fiction the player installs; stories are what arrives through it
+(the frame: `design/premise-and-branding.md`).
+
+The demo story, Kokugikan, is a murder mystery told entirely as a text-message conversation.
+You text Yuki; a local LLM (`gemma4:e4b` in ollama) classifies each of your texts into one
+of 8 intents, picks the matching authored response template for the current story beat, and
+writes Yuki's reply in-voice. Six beats, 48 templates, 8 unique endings.
 
 The design is authored as a set of markdown templates; the runtime story pack is pre-built
 and committed at `server/story-pack.json`, so this repo runs as-is.

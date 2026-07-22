@@ -1,6 +1,16 @@
 # QUANTUM MURDER MYSTERIES
 ## Participation Agreement & Assumption of Narrative Risk
 
+> **STATUS (2026-07-22): this document becomes ACME's EULA.** Under the app-wide premise
+> (`premise-and-branding.md`), the consent surface is no longer a participation agreement for a
+> story — it is the End User License Agreement for **QMM — Quantum Media Messenger by ACME Co.**,
+> the leaked instrument the player installed. Straight upgrade to the convincer: an agreement
+> asks you to consent to fiction; an EULA *tells you what the instrument does*. Every clause
+> below re-reads perfectly under the frame (3 = unexpected channels, 5 = knowledge you don't
+> remember providing, 7 = arranged-vs-coincidence). REWRITE = same clauses, new letterhead, and
+> the personified party changes from "the Story" to ACME/QMM. Clause 10 stays the flagged
+> placeholder until a lawyer pass. Not yet done — this is the spec for it.
+
 ---
 
 Quantum Murder Mysteries ("the Story") is a work of interactive fiction. It is not
