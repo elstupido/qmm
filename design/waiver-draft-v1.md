@@ -1,5 +1,30 @@
 # QMM — END USER LICENSE AGREEMENT (the consent surface)
 
+> ## ⚠️ SUPERSEDED BY SHIPPED COPY — read this first (2026-07-22, later the same day)
+>
+> Two chats rewrote the consent surface in parallel, and **the other one shipped.** What is live
+> on android and web is the *instrument's own release form* — authored in
+> `qmm-android/app/src/main/java/net/stuped/qmm/ui/WaiverText.kt`, mirrored byte-for-byte into
+> `qmm-web/public/`. **WaiverText.kt is the source of truth for waiver copy.** Martin's call
+> ("pull android changes to web").
+>
+> It solves the same problem more cheaply than the draft below: rather than re-voicing all ten
+> clauses as ACME license terms, its preamble redefines **"the Story" as what comes back down the
+> channel**, so clauses 1–9 and SECTION II carry over *untouched* — and clause 2 keeps "I
+> understand that the Story is fiction" inside the signed list, which is where the real-consent
+> work is safest. It adds a `NOTICE OF DISTRIBUTION` footer (the leak as boilerplate). Zero
+> clause churn, ethics floor intact.
+>
+> **The EULA draft below was NOT adopted.** Kept for the design notes, which still hold. One item
+> in it is an unresolved *product* gap rather than a stylistic alternative:
+>
+> **NO REAL PARTY IS NAMED ANYWHERE IN THE SHIPPING WAIVER.** Clause 10 now releases "the Story,
+> the instrument, and ACME co." — three fictional entities. A release running in favour of a
+> company that does not exist is worth nothing, and there is no real contact, no operator
+> identity, and no privacy pointer on the document. See "Operator Disclosure" and the clause-10
+> notes below; this has to be settled at the lawyer pass, before any non-friend ring
+> (`ethics-and-safety.md`).
+
 > **STATUS (2026-07-22): the rewrite specced in `premise-and-branding.md` is DONE — this is it.**
 > The consent surface is now ACME's EULA for **QMM — Quantum Media Messenger**, the leaked
 > instrument the player installed. Every clause of the old participation agreement survives;
